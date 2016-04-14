@@ -4,7 +4,8 @@ import akka.actor.ActorSystem
 import akka.testkit.{ TestActorRef, TestKit }
 import com.twitter.common.zookeeper.ZooKeeperClient
 import mesosphere.marathon.test.{ MarathonActorSupport, Mockito }
-import mesosphere.marathon.{ LeadershipAbdication, MarathonSpec }
+import mesosphere.marathon.core.election.LeadershipAbdication
+import mesosphere.marathon.MarathonSpec
 import org.apache.zookeeper.{ ZooKeeper, WatchedEvent, Watcher }
 import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, GivenWhenThen }
 

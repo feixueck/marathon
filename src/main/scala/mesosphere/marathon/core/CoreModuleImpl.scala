@@ -9,7 +9,7 @@ import mesosphere.marathon.core.base.{ ActorsModule, Clock, ShutdownHooks }
 import mesosphere.marathon.core.flow.FlowModule
 import mesosphere.marathon.core.launcher.{ TaskOpFactory, LauncherModule }
 import mesosphere.marathon.core.launchqueue.LaunchQueueModule
-import mesosphere.marathon.core.election.TwitterCommonElectionModule
+import mesosphere.marathon.core.election.{ LeadershipAbdication, TwitterCommonElectionModule }
 import mesosphere.marathon.core.leadership.LeadershipModule
 import mesosphere.marathon.core.matcher.base.util.StopOnFirstMatchingOfferMatcher
 import mesosphere.marathon.core.matcher.manager.OfferMatcherManagerModule
@@ -22,7 +22,7 @@ import mesosphere.marathon.core.task.tracker.TaskTrackerModule
 import mesosphere.marathon.core.task.update.TaskUpdateStep
 import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.{ GroupRepository, AppRepository, TaskRepository }
-import mesosphere.marathon.{ LeadershipAbdication, MarathonConf, MarathonSchedulerDriverHolder }
+import mesosphere.marathon.{ MarathonConf, MarathonSchedulerDriverHolder }
 
 import scala.util.Random
 
@@ -55,7 +55,11 @@ class CoreModuleImpl @Inject() (
   private[this] lazy val actorsModule = new ActorsModule(shutdownHookModule, actorSystem)
 
   override lazy val leadershipModule = LeadershipModule(actorsModule.actorRefFactory, zk, leader)
-  override lazy val electionModule = new TwitterCommonElectionModule(marathonConf)
+  override lazy val electionModule = if (marathonConf.highlyAvailable()) {
+    new TwitterCommonElectionModule(marathonConf)
+  } else {
+    new PseudoElectionModule()
+  }
 
   // TASKS
 

@@ -32,29 +32,6 @@ import scala.concurrent.{ Await, Future, TimeoutException }
 import scala.util.{ Failure, Success }
 
 /**
-  * Leadership callbacks.
-  */
-trait LeadershipCallback {
-
-  /**
-    * Will get called _before_ the scheduler driver is started.
-    */
-  def onElected: Future[Unit]
-
-  /**
-    * Will get called after leadership is abdicated.
-    */
-  def onDefeated: Future[Unit]
-}
-
-/**
-  * Minimal trait to abdicate leadership from external components (e.g. zk connection listener)
-  */
-trait LeadershipAbdication {
-  def abdicateLeadership(): Unit
-}
-
-/**
   * Wrapper class for the scheduler
   */
 class MarathonSchedulerService @Inject() (
@@ -70,7 +47,7 @@ class MarathonSchedulerService @Inject() (
   @Named("schedulerActor") schedulerActor: ActorRef,
   @Named(EventModule.busName) eventStream: EventStream,
   metrics: Metrics = new Metrics(new MetricRegistry))
-    extends AbstractExecutionThreadService with LeadershipAbdication {
+    extends AbstractExecutionThreadService {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

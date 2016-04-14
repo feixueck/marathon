@@ -2,7 +2,7 @@ package mesosphere.marathon.core.leadership
 
 import akka.actor.{ ActorRef, ActorRefFactory, Props }
 import com.twitter.common.zookeeper.ZooKeeperClient
-import mesosphere.marathon.LeadershipAbdication
+import mesosphere.marathon.core.election.LeadershipAbdication
 import mesosphere.marathon.core.leadership.impl._
 
 trait LeadershipModule {
