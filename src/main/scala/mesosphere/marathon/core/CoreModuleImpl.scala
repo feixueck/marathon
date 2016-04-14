@@ -9,6 +9,7 @@ import mesosphere.marathon.core.base.{ ActorsModule, Clock, ShutdownHooks }
 import mesosphere.marathon.core.flow.FlowModule
 import mesosphere.marathon.core.launcher.{ TaskOpFactory, LauncherModule }
 import mesosphere.marathon.core.launchqueue.LaunchQueueModule
+import mesosphere.marathon.core.election.TwitterCommonElectionModule
 import mesosphere.marathon.core.leadership.LeadershipModule
 import mesosphere.marathon.core.matcher.base.util.StopOnFirstMatchingOfferMatcher
 import mesosphere.marathon.core.matcher.manager.OfferMatcherManagerModule
@@ -54,6 +55,7 @@ class CoreModuleImpl @Inject() (
   private[this] lazy val actorsModule = new ActorsModule(shutdownHookModule, actorSystem)
 
   override lazy val leadershipModule = LeadershipModule(actorsModule.actorRefFactory, zk, leader)
+  override lazy val electionModule = new TwitterCommonElectionModule(marathonConf)
 
   // TASKS
 

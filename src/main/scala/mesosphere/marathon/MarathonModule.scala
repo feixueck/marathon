@@ -19,6 +19,7 @@ import com.twitter.zk.{ NativeConnector, ZkClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.Protos.MarathonTask
 import mesosphere.marathon.api.LeaderInfo
+import mesosphere.marathon.core.election.{ ElectionService, TwitterCommonElectionModule }
 import mesosphere.marathon.core.launcher.TaskOpFactory
 import mesosphere.marathon.core.launcher.impl.TaskOpFactoryImpl
 import mesosphere.marathon.core.launchqueue.LaunchQueue
@@ -52,7 +53,6 @@ object ModuleNames {
   final val CANDIDATE = "CANDIDATE"
   final val HOST_PORT = "HOST_PORT"
 
-  final val LEADER_ATOMIC_BOOLEAN = "LEADER_ATOMIC_BOOLEAN"
   final val SERVER_SET_PATH = "SERVER_SET_PATH"
   final val SERIALIZE_GROUP_UPDATES = "SERIALIZE_GROUP_UPDATES"
   final val HTTP_EVENT_STREAM = "HTTP_EVENT_STREAM"
@@ -92,6 +92,7 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
     bind(classOf[LeadershipAbdication]).to(classOf[MarathonSchedulerService])
     bind(classOf[LeaderInfo]).to(classOf[MarathonLeaderInfo]).in(Scopes.SINGLETON)
     bind(classOf[TaskOpFactory]).to(classOf[TaskOpFactoryImpl]).in(Scopes.SINGLETON)
+    bind(classOf[ElectionService]).to(classOf[TwitterCommonElectionModule]).in(Scopes.SINGLETON)
 
     bind(classOf[HealthCheckManager]).to(classOf[MarathonHealthCheckManager]).asEagerSingleton()
 
@@ -101,12 +102,6 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
 
     bind(classOf[Metrics]).in(Scopes.SINGLETON)
     bind(classOf[HttpEventStreamActorMetrics]).in(Scopes.SINGLETON)
-
-    // If running in single scheduler mode, this node is the leader.
-    val leader = new AtomicBoolean(!conf.highlyAvailable())
-    bind(classOf[AtomicBoolean])
-      .annotatedWith(Names.named(ModuleNames.LEADER_ATOMIC_BOOLEAN))
-      .toInstance(leader)
   }
 
   @Provides

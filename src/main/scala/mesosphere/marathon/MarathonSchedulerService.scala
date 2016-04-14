@@ -16,6 +16,7 @@ import com.twitter.common.zookeeper.Candidate
 import com.twitter.common.zookeeper.Candidate.Leader
 import com.twitter.common.zookeeper.Group.JoinException
 import mesosphere.marathon.MarathonSchedulerActor._
+import mesosphere.marathon.core.election.ElectionService
 import mesosphere.marathon.core.leadership.LeadershipCoordinator
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.event.{ EventModule, LocalLeadershipEvent }
@@ -69,7 +70,7 @@ class MarathonSchedulerService @Inject() (
   @Named(ModuleNames.CANDIDATE) candidate: Option[Candidate],
   config: MarathonConf,
   frameworkIdUtil: FrameworkIdUtil,
-  @Named(ModuleNames.LEADER_ATOMIC_BOOLEAN) leader: AtomicBoolean,
+  @Inject electionService: ElectionService,
   appRepository: AppRepository,
   driverFactory: SchedulerDriverFactory,
   system: ActorSystem,
