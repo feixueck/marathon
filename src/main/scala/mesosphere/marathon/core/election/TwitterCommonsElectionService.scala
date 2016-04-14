@@ -1,15 +1,15 @@
 package mesosphere.marathon.core.election
 
-import java.util.concurrent.atomic.{AtomicReference, AtomicBoolean}
+import java.util.concurrent.atomic.{ AtomicReference, AtomicBoolean }
 
 import akka.actor.ActorSystem
 import akka.event.EventStream
 import akka.pattern.after
-import com.codahale.metrics.{MetricRegistry, Gauge}
-import com.twitter.common.base.{Supplier, ExceptionalCommand}
+import com.codahale.metrics.{ MetricRegistry, Gauge }
+import com.twitter.common.base.{ Supplier, ExceptionalCommand }
 import com.twitter.common.zookeeper.Candidate.Leader
 import com.twitter.common.zookeeper.Group.JoinException
-import com.twitter.common.zookeeper.{Group, CandidateImpl, Candidate, ZooKeeperClient}
+import com.twitter.common.zookeeper.{ Group, CandidateImpl, Candidate, ZooKeeperClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
 import mesosphere.marathon.event.LocalLeadershipEvent
@@ -18,23 +18,22 @@ import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 class TwitterCommonsElectionService(
-    delegate: ElectionDelegate,
-    eventStream: EventStream,
     config: MarathonConf,
-    http: HttpConf,
-    leadershipCallbacks: Seq[ElectionCallback] = Seq.empty,
-    metrics: Metrics = new Metrics(new MetricRegistry),
     system: ActorSystem,
+    eventStream: EventStream,
+    http: HttpConf,
+    metrics: Metrics = new Metrics(new MetricRegistry),
     hostPort: String,
-    zk: ZooKeeperClient
-) extends ElectionService with Leader {
+    zk: ZooKeeperClient,
+    leadershipCallbacks: Seq[ElectionCallback] = Seq.empty,
+    delegate: ElectionDelegate) extends ElectionService with Leader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
-  private lazy val backoff = new ExponentialBackoff(name="offerLeadership")
+  private lazy val backoff = new ExponentialBackoff(name = "offerLeadership")
   private lazy val candidate = provideCandidate(zk)
   private val abdicate = new AtomicReference[Option[ElectionService.Abdicator]](None)
 

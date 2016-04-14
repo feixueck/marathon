@@ -8,8 +8,7 @@ private class ExponentialBackoff(
     initialValue: FiniteDuration = 0.5.seconds,
     maximumValue: FiniteDuration = 16.seconds,
     exponent: Double = 2,
-    name: String = "unnamed"
-) {
+    name: String = "unnamed") {
   private val log = LoggerFactory.getLogger(getClass.getName)
   private var v = initialValue
 

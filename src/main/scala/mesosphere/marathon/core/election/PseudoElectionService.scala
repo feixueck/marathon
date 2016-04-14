@@ -12,12 +12,11 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-private class PseudoElectionService(
+class PseudoElectionService(
     config: MarathonConf,
     system: ActorSystem,
     eventStream: EventStream,
-    delegate: ElectionDelegate
-) extends ElectionService {
+    delegate: ElectionDelegate) extends ElectionService {
   private val log = LoggerFactory.getLogger(getClass.getName)
 
   // If running in single scheduler mode, this node is the leader in the beginning.
