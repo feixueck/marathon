@@ -1,5 +1,6 @@
 package mesosphere.marathon
 
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.{ Timer, TimerTask }
 
@@ -12,6 +13,7 @@ import com.twitter.common.zookeeper.Group.JoinException
 import com.twitter.common.zookeeper.{ Candidate, Group }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.Protos.StorageVersion
+import mesosphere.marathon.core.election.ElectionService
 import mesosphere.marathon.core.leadership.LeadershipCoordinator
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.health.HealthCheckManager
@@ -42,7 +44,7 @@ object MarathonSchedulerServiceTest {
   val MaxActorStartupTime = 5000L
   val OnElectedPrepareTimeout = 3 * 60 * 1000L
 
-  def mockConfig = {
+  def mockConfig: MarathonConf = {
     val config = mock(classOf[MarathonConf])
 
     when(config.reconciliationInitialDelay).thenReturn(scallopOption(Some(ReconciliationDelay)))
@@ -78,7 +80,7 @@ class MarathonSchedulerServiceTest
   private[this] var config: MarathonConf = _
   private[this] var httpConfig: HttpConf = _
   private[this] var frameworkIdUtil: FrameworkIdUtil = _
-  private[this] var leader: AtomicBoolean = _
+  private[this] var electionService: ElectionService = _
   private[this] var appRepository: AppRepository = _
   private[this] var taskTracker: TaskTracker = _
   private[this] var scheduler: MarathonScheduler = _
@@ -94,7 +96,7 @@ class MarathonSchedulerServiceTest
     config = mockConfig
     httpConfig = mock[HttpConf]
     frameworkIdUtil = mock[FrameworkIdUtil]
-    leader = mock[AtomicBoolean]
+    electionService = mock[ElectionService]
     appRepository = mock[AppRepository]
     taskTracker = mock[TaskTracker]
     scheduler = mock[MarathonScheduler]
@@ -117,10 +119,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory(mock[SchedulerDriver]),
       system,
@@ -128,13 +129,13 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      override def startLeadership(): Unit = ()
     }
 
     schedulerService.timer = mockTimer
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    schedulerService.startLeadership()
 
     verify(mockTimer).schedule(any[TimerTask](), mockEq(ReconciliationDelay), mockEq(ReconciliationInterval))
   }
@@ -147,10 +148,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory(mock[SchedulerDriver]),
       system,
@@ -158,12 +158,12 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      override def startLeadership(): Unit = ()
     }
 
     schedulerService.timer = mockTimer
 
-    schedulerService.onDefeated()
+    schedulerService.stopLeadership()
 
     verify(mockTimer).cancel()
     assert(schedulerService.timer != mockTimer, "Timer should be replaced after leadership defeat")
@@ -177,10 +177,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory(mock[SchedulerDriver]),
       system,
@@ -189,17 +188,17 @@ class MarathonSchedulerServiceTest
       events,
       metrics = new Metrics(new MetricRegistry)
     ) {
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      override def startLeadership(): Unit = ()
       override def newTimer() = mockTimer
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    schedulerService.startLeadership()
 
-    schedulerService.onDefeated()
+    schedulerService.stopLeadership()
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    schedulerService.startLeadership()
 
     verify(mockTimer, times(2)).schedule(any(), mockEq(ScaleAppsDelay), mockEq(ScaleAppsInterval))
     verify(mockTimer, times(2)).schedule(any[TimerTask](), mockEq(ReconciliationDelay), mockEq(ReconciliationInterval))
@@ -217,10 +216,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory(mock[SchedulerDriver]),
       system,
@@ -228,7 +226,7 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      override def startLeadership(): Unit = ()
       override def newTimer() = mockTimer
     }
 
@@ -247,10 +245,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory(mock[SchedulerDriver]),
       system,
@@ -258,8 +255,8 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      //override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
+      override def startLeadership(): Unit = ()
     }
 
     // use an Answer object here because Mockito's thenThrow does only
@@ -271,10 +268,14 @@ class MarathonSchedulerServiceTest
       }
     })
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    try {
+      schedulerService.startLeadership()
+    }
+    catch {
+      case _: TimeoutException => schedulerService.stopLeadership()
+    }
 
-    verify(candidate.get, Mockito.timeout(1000)).offerLeadership(schedulerService)
-    leader.get() should be (false)
+    verify(electionService, Mockito.timeout(1000)).offerLeadership()
   }
 
   test("Abdicate leadership when the driver creation fails by some exception") {
@@ -285,10 +286,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory,
       system,
@@ -296,17 +296,18 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
+      override def startLeadership(): Unit = ()
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
     when(driverFactory.createDriver()).thenThrow(new Exception("Some weird exception"))
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    schedulerService.startLeadership()
+    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error = true)
 
-    verify(candidate.get, Mockito.timeout(1000)).offerLeadership(schedulerService)
-    leader.get() should be (false)
+    schedulerService.stopLeadership()
+    verify(electionService, Mockito.timeout(1000)).offerLeadership()
   }
 
   test("Abdicate leadership when prepareStart throws an exception") {
@@ -317,10 +318,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory,
       system,
@@ -328,17 +328,21 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def runDriver(abdicateCmdOption: Option[ExceptionalCommand[JoinException]]): Unit = ()
+      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
+      override def startLeadership(): Unit = ()
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.failed(new RuntimeException("fail")))
     when(driverFactory.createDriver()).thenReturn(mock[SchedulerDriver])
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    try {
+      schedulerService.startLeadership()
+    }
+    catch {
+      case _: RuntimeException => schedulerService.stopLeadership()
+    }
 
-    verify(candidate.get, Mockito.timeout(1000)).offerLeadership(schedulerService)
-    leader.get() should be (false)
+    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true)
   }
 
   test("Abdicate leadership when driver ends with error") {
@@ -350,10 +354,9 @@ class MarathonSchedulerServiceTest
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
       healthCheckManager,
-      candidate,
       config,
       frameworkIdUtil,
-      leader,
+      electionService,
       appRepository,
       driverFactory,
       system,
@@ -361,7 +364,7 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
+      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
@@ -369,9 +372,10 @@ class MarathonSchedulerServiceTest
 
     when(driver.run()).thenThrow(new RuntimeException("driver failure"))
 
-    schedulerService.onElected(mock[ExceptionalCommand[Group.JoinException]])
+    schedulerService.startLeadership()
+    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true)
 
-    verify(candidate.get, Mockito.timeout(1000)).offerLeadership(schedulerService)
-    leader.get() should be(false)
+    schedulerService.stopLeadership()
+    verify(electionService, Mockito.timeout(1000)).offerLeadership()
   }
 }

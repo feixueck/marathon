@@ -50,7 +50,6 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 object ModuleNames {
-  final val CANDIDATE = "CANDIDATE"
   final val HOST_PORT = "HOST_PORT"
 
   final val SERVER_SET_PATH = "SERVER_SET_PATH"

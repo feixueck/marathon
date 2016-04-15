@@ -83,6 +83,7 @@ class CoreModuleImpl @Inject() (
       actorSystem,
       eventStream,
       metrics,
+      hostPort,
       electionCallbacks,
       marathonSchedulerService
     )

@@ -14,6 +14,7 @@ import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
+import scala.util.control.NonFatal
 
 class TwitterCommonsElectionService(
   config: MarathonConf,
@@ -29,6 +30,20 @@ class TwitterCommonsElectionService(
 ) with Leader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val candidate = provideCandidate(zk)
+
+  override def leader: Option[String] = {
+    val maybeLeaderData: Option[Array[Byte]] = try {
+      Option(candidate.getLeaderData.orNull())
+    }
+    catch {
+      case NonFatal(e) =>
+        log.error("error while getting current leader", e)
+        None
+    }
+    maybeLeaderData.map { data =>
+      new String(data, "UTF-8")
+    }
+  }
 
   override def offerLeadershipImpl(): Unit = candidate.synchronized {
     log.info("Using HA and therefore offering leadership")

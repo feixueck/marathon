@@ -3,8 +3,7 @@ package mesosphere.marathon
 import javax.inject.{ Named, Inject }
 
 import akka.actor.ActorRef
-import akka.event.{ EventStream, EventBus }
-import com.twitter.common.zookeeper.Candidate
+import akka.event.EventStream
 import mesosphere.marathon.api.LeaderInfo
 import mesosphere.marathon.core.election.ElectionService
 import mesosphere.marathon.event.{ LocalLeadershipEvent, EventModule }
@@ -12,10 +11,7 @@ import mesosphere.marathon.metrics.{ MetricPrefixes, Metrics }
 import mesosphere.marathon.metrics.Metrics.Timer
 import org.slf4j.LoggerFactory
 
-import scala.util.control.NonFatal
-
 class MarathonLeaderInfo @Inject() (
-    @Named(ModuleNames.CANDIDATE) candidate: Option[Candidate],
     @Inject electionService: ElectionService,
     @Named(EventModule.busName) eventStream: EventStream,
     metrics: MarathonLeaderInfoMetrics) extends LeaderInfo {
@@ -26,19 +22,7 @@ class MarathonLeaderInfo @Inject() (
   override def elected: Boolean = electionService.isLeader
 
   override def currentLeaderHostPort(): Option[String] = metrics.getLeaderDataTimer {
-    candidate.flatMap { c =>
-      val maybeLeaderData: Option[Array[Byte]] = try {
-        Option(c.getLeaderData.orNull())
-      }
-      catch {
-        case NonFatal(e) =>
-          log.error("error while getting current leader", e)
-          None
-      }
-      maybeLeaderData.map { data =>
-        new String(data, "UTF-8")
-      }
-    }
+    electionService.leader
   }
 
   /**

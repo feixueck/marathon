@@ -8,6 +8,7 @@ trait LeadershipAbdication {
 
 trait ElectionService extends LeadershipAbdication {
   def isLeader: Boolean
+  def leader: Option[String]
   def offerLeadership(): Unit
 }
 
