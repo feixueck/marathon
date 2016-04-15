@@ -12,22 +12,18 @@ trait ElectionService extends LeadershipAbdication {
 }
 
 trait ElectionDelegate {
-  def defeatLeadership(): Unit
-  def electLeadership(abdicate: ElectionService.Abdicator): Unit
+  def stopLeadership(): Unit
+  def startLeadership(): Unit
 }
 
 trait ElectionCallback {
   /**
-   * Will get called _before_ the scheduler driver is started.
-   */
+    * Will get called _before_ the scheduler driver is started.
+    */
   def onElected: Future[Unit]
 
   /**
-   * Will get called after leadership is abdicated.
-   */
+    * Will get called after leadership is abdicated.
+    */
   def onDefeated: Future[Unit]
-}
-
-object ElectionService {
-  type Abdicator = /* error: */ Boolean => Unit
 }

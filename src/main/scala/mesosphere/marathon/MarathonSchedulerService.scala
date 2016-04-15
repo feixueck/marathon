@@ -10,7 +10,7 @@ import akka.pattern.{ after, ask }
 import akka.util.Timeout
 import com.google.common.util.concurrent.AbstractExecutionThreadService
 import mesosphere.marathon.MarathonSchedulerActor._
-import mesosphere.marathon.core.election.{ElectionDelegate, ElectionService}
+import mesosphere.marathon.core.election.{ ElectionDelegate, ElectionService }
 import mesosphere.marathon.core.leadership.LeadershipCoordinator
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.event.EventModule
@@ -174,7 +174,9 @@ class MarathonSchedulerService @Inject() (
 
   //End Service interface
 
-  def electLeadership(abdicate: ElectionService.Abdicator): Unit = synchronized {
+  //Begin ElectionDelegate interface
+
+  def startLeadership(): Unit = synchronized {
     log.info("Elect leadership, running driver")
 
     // execute tasks, only the leader is allowed to
@@ -201,15 +203,15 @@ class MarathonSchedulerService @Inject() (
 
         // tell leader election that we step back. This will call defeatLeadership which
         // will re-offer leadership (if isRunning is true).
-        abdicate(false)
+        electionService.abdicateLeadership()
 
       case Failure(t) =>
         log.error("Exception while running driver", t)
-        abdicate(true) // error=true
+        electionService.abdicateLeadership(error=true)
     }
   }
 
-  def defeatLeadership(): Unit = synchronized {
+  def stopLeadership(): Unit = synchronized {
     log.info("Defeat leadership")
 
     leadershipCoordinator.stop()
@@ -227,6 +229,8 @@ class MarathonSchedulerService @Inject() (
       electionService.offerLeadership()
     }
   }
+
+  //End ElectionDelegate interface
 
   private def schedulePeriodicOperations(): Unit = synchronized {
     timer.schedule(

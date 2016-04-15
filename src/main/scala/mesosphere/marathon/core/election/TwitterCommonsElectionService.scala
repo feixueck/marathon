@@ -1,6 +1,6 @@
 package mesosphere.marathon.core.election
 
-import java.util.concurrent.atomic.{ AtomicReference, AtomicBoolean }
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import akka.event.EventStream
@@ -30,97 +30,31 @@ class TwitterCommonsElectionService(
     metrics: Metrics = new Metrics(new MetricRegistry),
     hostPort: String,
     zk: ZooKeeperClient,
-    leadershipCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionDelegate) extends ElectionService with Leader {
+    electionCallbacks: Seq[ElectionCallback] = Seq.empty,
+    delegate: ElectionDelegate
+) extends ElectionServiceBase(config, system, eventStream, metrics, electionCallbacks, delegate) with Leader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
-  private lazy val backoff = new ExponentialBackoff(name = "offerLeadership")
   private lazy val candidate = provideCandidate(zk)
-  private val abdicate = new AtomicReference[Option[ElectionService.Abdicator]](None)
 
-  override def isLeader: Boolean = abdicate.get().isDefined
-
-  override def abdicateLeadership(error: Boolean): Unit = synchronized {
-    val abdicate = TwitterCommonsElectionService.this.abdicate.getAndSet(None)
-    abdicate.foreach(_.apply(error))
-  }
-
-  override def offerLeadership(): Unit = synchronized {
-    log.info(s"Will offer leadership after ${backoff.value()} backoff")
-    after(backoff.value(), system.scheduler)(Future {
-      candidate.synchronized {
-        log.info("Using HA and therefore offering leadership")
-        candidate.offerLeadership(this)
-      }
-    })
+  override def offerLeadershipImpl(): Unit = candidate.synchronized {
+    log.info("Using HA and therefore offering leadership")
+    candidate.offerLeadership(this)
   }
 
   //Begin Leader interface, which is required for CandidateImpl.
   override def onDefeated(): Unit = synchronized {
     log.info("Defeated (Leader Interface)")
-
-    log.info(s"Call onDefeated leadership callbacks on ${leadershipCallbacks.mkString(", ")}")
-    Await.result(Future.sequence(leadershipCallbacks.map(_.onDefeated)), config.zkTimeoutDuration)
-    log.info(s"Finished onDefeated leadership callbacks")
-
-    eventStream.publish(LocalLeadershipEvent.Standby)
-
-    abdicate.set(None)
-
-    // Our leadership has been defeated and thus we call the defeatLeadership() method.
-    delegate.defeatLeadership()
-
-    stopMetrics()
+    stopLeadershop()
   }
 
   override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {
-    val abdicate: ElectionService.Abdicator = error => {
-      if (error) backoff.increase()
+    log.info("Elected (Leader Interface)")
+    startLeadership(error => {
       abdicateCmd.execute()
-      // defeatLeadership() is called in onDefeated
-    }
-
-    try {
-      log.info("Elected (Leader Interface)")
-      eventStream.publish(LocalLeadershipEvent.ElectedAsLeader)
-
-      // Start the leader duration metric
-      startMetrics()
-
-      // run all leadership callbacks
-      log.info(s"""Call onElected leadership callbacks on ${leadershipCallbacks.mkString(", ")}""")
-      Await.result(Future.sequence(leadershipCallbacks.map(_.onElected)), config.onElectedPrepareTimeout().millis)
-      log.info(s"Finished onElected leadership callbacks")
-
-      // We have been elected. Thus, elect leadership with the abdication command.
-      TwitterCommonsElectionService.this.abdicate.set(Some(abdicate))
-      delegate.electLeadership(abdicate)
-
-      // We successfully took over leadership. Time to reset backoff
-      if (isLeader) {
-        backoff.reset()
-      }
-    }
-    catch {
-      case NonFatal(e) => // catch Scala and Java exceptions
-        log.error("Failed to take over leadership", e)
-        abdicate(true) // error=true
-    }
-  }
-  //End Leader interface
-
-  def startMetrics(): Unit = {
-    metrics.gauge("service.mesosphere.marathon.leaderDuration", new Gauge[Long] {
-      val startedAt = System.currentTimeMillis()
-
-      override def getValue: Long = {
-        System.currentTimeMillis() - startedAt
-      }
+      // stopLeadership() is called in onDefeated
     })
   }
-
-  def stopMetrics(): Unit = {
-    metrics.registry.remove("service.mesosphere.marathon.leaderDuration")
-  }
+  //End Leader interface
 
   def provideCandidate(zk: ZooKeeperClient): Candidate = {
     log.info("Registering in ZooKeeper with hostPort:" + hostPort)

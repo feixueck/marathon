@@ -27,7 +27,7 @@ import mesosphere.marathon.core.task.tracker.TaskTrackerModule
 import mesosphere.marathon.core.task.update.TaskUpdateStep
 import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.{ GroupRepository, AppRepository, TaskRepository }
-import mesosphere.marathon.{MarathonSchedulerService, MarathonConf, MarathonSchedulerDriverHolder, ModuleNames}
+import mesosphere.marathon.{ MarathonSchedulerService, MarathonConf, MarathonSchedulerDriverHolder, ModuleNames }
 
 import scala.collection.immutable.Seq
 import scala.util.Random
@@ -54,6 +54,7 @@ class CoreModuleImpl @Inject() (
     taskRepository: TaskRepository,
     taskOpFactory: TaskOpFactory,
     leaderInfo: LeaderInfo,
+    electionCallbacks: Seq[ElectionCallback] = Seq.empty,
     clock: Clock,
     taskStatusUpdateSteps: Seq[TaskUpdateStep]) extends CoreModule {
 
@@ -73,14 +74,17 @@ class CoreModuleImpl @Inject() (
       metrics,
       hostPort,
       zk,
-      callbacks,
+      electionCallbacks,
       marathonSchedulerService
     )
-  } else {
+  }
+  else {
     new PseudoElectionService(
       marathonConf,
       actorSystem,
       eventStream,
+      metrics,
+      electionCallbacks,
       marathonSchedulerService
     )
   }
