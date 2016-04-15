@@ -1,16 +1,11 @@
 package mesosphere.marathon
 
-import java.util.concurrent.TimeoutException
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.{ Timer, TimerTask }
 
 import akka.actor.ActorRef
 import akka.event.EventStream
 import akka.testkit.TestProbe
 import com.codahale.metrics.MetricRegistry
-import com.twitter.common.base.ExceptionalCommand
-import com.twitter.common.zookeeper.Group.JoinException
-import com.twitter.common.zookeeper.{ Candidate, Group }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.Protos.StorageVersion
 import mesosphere.marathon.core.election.ElectionService
@@ -76,7 +71,6 @@ class MarathonSchedulerServiceTest
   private[this] var probe: TestProbe = _
   private[this] var leadershipCoordinator: LeadershipCoordinator = _
   private[this] var healthCheckManager: HealthCheckManager = _
-  private[this] var candidate: Option[Candidate] = _
   private[this] var config: MarathonConf = _
   private[this] var httpConfig: HttpConf = _
   private[this] var frameworkIdUtil: FrameworkIdUtil = _
@@ -92,7 +86,6 @@ class MarathonSchedulerServiceTest
     probe = TestProbe()
     leadershipCoordinator = mock[LeadershipCoordinator]
     healthCheckManager = mock[HealthCheckManager]
-    candidate = mock[Option[Candidate]]
     config = mockConfig
     httpConfig = mock[HttpConf]
     frameworkIdUtil = mock[FrameworkIdUtil]
@@ -128,9 +121,7 @@ class MarathonSchedulerServiceTest
       migration,
       schedulerActor,
       events
-    ) {
-      override def startLeadership(): Unit = ()
-    }
+    )
 
     schedulerService.timer = mockTimer
 
@@ -188,7 +179,6 @@ class MarathonSchedulerServiceTest
       events,
       metrics = new Metrics(new MetricRegistry)
     ) {
-      override def startLeadership(): Unit = ()
       override def newTimer() = mockTimer
     }
 
@@ -240,7 +230,6 @@ class MarathonSchedulerServiceTest
 
   test("Abdicate leadership when migration fails and reoffer leadership") {
     when(frameworkIdUtil.fetch()).thenReturn(None)
-    candidate = Some(mock[Candidate])
 
     val schedulerService = new MarathonSchedulerService(
       leadershipCoordinator,
@@ -256,14 +245,14 @@ class MarathonSchedulerServiceTest
       events
     ) {
       //override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def startLeadership(): Unit = ()
     }
+
+    import java.util.concurrent.TimeoutException
 
     // use an Answer object here because Mockito's thenThrow does only
     // allow to throw RuntimeExceptions
     when(migration.migrate()).thenAnswer(new Answer[StorageVersion] {
       override def answer(invocation: InvocationOnMock): StorageVersion = {
-        import java.util.concurrent.TimeoutException
         throw new TimeoutException("Failed to wait for future within timeout")
       }
     })
@@ -280,7 +269,6 @@ class MarathonSchedulerServiceTest
 
   test("Abdicate leadership when the driver creation fails by some exception") {
     when(frameworkIdUtil.fetch()).thenReturn(None)
-    candidate = Some(mock[Candidate])
     val driverFactory = mock[SchedulerDriverFactory]
 
     val schedulerService = new MarathonSchedulerService(
@@ -312,7 +300,6 @@ class MarathonSchedulerServiceTest
 
   test("Abdicate leadership when prepareStart throws an exception") {
     when(frameworkIdUtil.fetch()).thenReturn(None)
-    candidate = Some(mock[Candidate])
     val driverFactory = mock[SchedulerDriverFactory]
 
     val schedulerService = new MarathonSchedulerService(
@@ -347,7 +334,6 @@ class MarathonSchedulerServiceTest
 
   test("Abdicate leadership when driver ends with error") {
     when(frameworkIdUtil.fetch()).thenReturn(None)
-    candidate = Some(mock[Candidate])
     val driver = mock[SchedulerDriver]
     val driverFactory = mock[SchedulerDriverFactory]
 
