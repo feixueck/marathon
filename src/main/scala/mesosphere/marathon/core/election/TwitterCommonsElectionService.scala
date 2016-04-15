@@ -1,38 +1,32 @@
 package mesosphere.marathon.core.election
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.ActorSystem
 import akka.event.EventStream
-import akka.pattern.after
-import com.codahale.metrics.{ MetricRegistry, Gauge }
+import com.codahale.metrics.MetricRegistry
 import com.twitter.common.base.{ Supplier, ExceptionalCommand }
 import com.twitter.common.zookeeper.Candidate.Leader
 import com.twitter.common.zookeeper.Group.JoinException
 import com.twitter.common.zookeeper.{ Group, CandidateImpl, Candidate, ZooKeeperClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.event.LocalLeadershipEvent
 import mesosphere.marathon.metrics.Metrics
 import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration._
-import scala.util.control.NonFatal
 
 class TwitterCommonsElectionService(
-    config: MarathonConf,
-    system: ActorSystem,
-    eventStream: EventStream,
-    http: HttpConf,
-    metrics: Metrics = new Metrics(new MetricRegistry),
-    hostPort: String,
-    zk: ZooKeeperClient,
-    electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionDelegate
-) extends ElectionServiceBase(config, system, eventStream, metrics, electionCallbacks, delegate) with Leader {
+  config: MarathonConf,
+  system: ActorSystem,
+  eventStream: EventStream,
+  http: HttpConf,
+  metrics: Metrics = new Metrics(new MetricRegistry),
+  hostPort: String,
+  zk: ZooKeeperClient,
+  electionCallbacks: Seq[ElectionCallback] = Seq.empty,
+  delegate: ElectionDelegate) extends ElectionServiceBase(
+  config, system, eventStream, metrics, electionCallbacks, delegate
+) with Leader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val candidate = provideCandidate(zk)
 

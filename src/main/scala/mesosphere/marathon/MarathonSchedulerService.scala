@@ -207,7 +207,7 @@ class MarathonSchedulerService @Inject() (
 
       case Failure(t) =>
         log.error("Exception while running driver", t)
-        electionService.abdicateLeadership(error=true)
+        electionService.abdicateLeadership(error = true)
     }
   }
 

@@ -7,7 +7,6 @@ import scala.concurrent.duration._
 private class ExponentialBackoff(
     initialValue: FiniteDuration = 0.5.seconds,
     maximumValue: FiniteDuration = 16.seconds,
-    exponent: Double = 2,
     name: String = "unnamed") {
   private val log = LoggerFactory.getLogger(getClass.getName)
   private var v = initialValue
@@ -16,7 +15,7 @@ private class ExponentialBackoff(
 
   def increase(): Unit = synchronized {
     if (v <= maximumValue) {
-      v *= exponent
+      v *= 2
       log.info(s"Increasing $name backoff to $v")
     }
   }

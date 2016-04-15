@@ -22,81 +22,82 @@ abstract class ElectionServiceBase(
     eventStream: EventStream,
     metrics: Metrics = new Metrics(new MetricRegistry),
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionDelegate
-) extends ElectionService {
-    private lazy val log = LoggerFactory.getLogger(getClass.getName)
-    private lazy val backoff = new ExponentialBackoff(name = "offerLeadership")
-    protected type Abdicator = /* error: */ Boolean => Unit
-    private val abdicate = new AtomicReference[Option[Abdicator]](None)
+    delegate: ElectionDelegate) extends ElectionService {
+  private lazy val log = LoggerFactory.getLogger(getClass.getName)
+  private lazy val backoff = new ExponentialBackoff(name = "offerLeadership")
+  protected type Abdicator = /* error: */ Boolean => Unit
+  private val abdicate = new AtomicReference[Option[Abdicator]](None)
 
-    override def isLeader: Boolean = abdicate.get().isDefined
+  import scala.concurrent.ExecutionContext.Implicits.global
 
-    override def abdicateLeadership(error: Boolean): Unit = synchronized {
-      val abdicate = ElectionServiceBase.this.abdicate.getAndSet(None)
-      abdicate.foreach(_.apply(error))
+  override def isLeader: Boolean = abdicate.get().isDefined
+
+  override def abdicateLeadership(error: Boolean): Unit = synchronized {
+    val abdicate = ElectionServiceBase.this.abdicate.getAndSet(None)
+    abdicate.foreach(_.apply(error))
+  }
+
+  protected def offerLeadershipImpl(): Unit
+
+  override def offerLeadership(): Unit = synchronized {
+    log.info(s"Will offer leadership after ${backoff.value()} backoff")
+    after(backoff.value(), system.scheduler)(Future {
+      offerLeadershipImpl()
+    })
+  }
+
+  protected def stopLeadershop(): Unit = synchronized {
+    abdicate.set(None)
+
+    log.info(s"Call onDefeated leadership callbacks on ${electionCallbacks.mkString(", ")}")
+    Await.result(Future.sequence(electionCallbacks.map(_.onDefeated)), config.zkTimeoutDuration)
+    log.info(s"Finished onDefeated leadership callbacks")
+
+    // Our leadership has been defeated and thus we call the defeatLeadership() method.
+    delegate.stopLeadership()
+
+    // tell the world about us
+    eventStream.publish(LocalLeadershipEvent.Standby)
+
+    stopMetrics()
+  }
+
+  protected def startLeadership(abdicate: Abdicator): Unit = synchronized {
+    def backoffAbdicate(error: Boolean) = {
+      if (error) backoff.increase()
+      abdicate(error)
     }
 
-    protected def offerLeadershipImpl(): Unit
+    try {
+      log.info("Elected (Leader Interface)")
 
-    override def offerLeadership(): Unit = synchronized {
-      log.info(s"Will offer leadership after ${backoff.value()} backoff")
-      after(backoff.value(), system.scheduler)(Future {
-        offerLeadershipImpl()
-      })
-    }
+      // We have been elected. Thus, elect leadership with the abdication command.
+      ElectionServiceBase.this.abdicate.set(Some(backoffAbdicate))
 
-    protected def stopLeadershop(): Unit = synchronized {
-      abdicate.set(None)
+      // Start the leader duration metric
+      startMetrics()
 
-      log.info(s"Call onDefeated leadership callbacks on ${electionCallbacks.mkString(", ")}")
-      Await.result(Future.sequence(electionCallbacks.map(_.onDefeated)), config.zkTimeoutDuration)
-      log.info(s"Finished onDefeated leadership callbacks")
+      // run all leadership callbacks
+      log.info(s"""Call onElected leadership callbacks on ${electionCallbacks.mkString(", ")}""")
+      Await.result(Future.sequence(electionCallbacks.map(_.onElected)), config.onElectedPrepareTimeout().millis)
+      log.info(s"Finished onElected leadership callbacks")
 
-      // Our leadership has been defeated and thus we call the defeatLeadership() method.
-      delegate.stopLeadership()
+      delegate.startLeadership()
 
       // tell the world about us
-      eventStream.publish(LocalLeadershipEvent.Standby)
+      eventStream.publish(LocalLeadershipEvent.ElectedAsLeader)
 
-      stopMetrics()
-    }
-
-    protected def startLeadership(abdicate: Abdicator): Unit = synchronized {
-      def backoffAbdicate(error: Boolean) = {
-        if (error) backoff.increase()
-        abdicate(error)
-      }
-
-      try {
-        log.info("Elected (Leader Interface)")
-
-        // We have been elected. Thus, elect leadership with the abdication command.
-        ElectionServiceBase.this.abdicate.set(Some(backoffAbdicate))
-
-        // Start the leader duration metric
-        startMetrics()
-
-        // run all leadership callbacks
-        log.info(s"""Call onElected leadership callbacks on ${electionCallbacks.mkString(", ")}""")
-        Await.result(Future.sequence(electionCallbacks.map(_.onElected)), config.onElectedPrepareTimeout().millis)
-        log.info(s"Finished onElected leadership callbacks")
-
-        delegate.startLeadership()
-
-        // tell the world about us
-        eventStream.publish(LocalLeadershipEvent.ElectedAsLeader)
-
-        // We successfully took over leadership. Time to reset backoff
-        if (isLeader) {
-          backoff.reset()
-        }
-      }
-      catch {
-        case NonFatal(e) => // catch Scala and Java exceptions
-          log.error("Failed to take over leadership", e)
-          abdicate(true) // error=true
+      // We successfully took over leadership. Time to reset backoff
+      if (isLeader) {
+        backoff.reset()
       }
     }
+    catch {
+      case NonFatal(e) => // catch Scala and Java exceptions
+        log.error("Failed to take over leadership", e)
+        abdicate(true) // error=true
+    }
+  }
 
   private def startMetrics(): Unit = {
     metrics.gauge("service.mesosphere.marathon.leaderDuration", new Gauge[Long] {
