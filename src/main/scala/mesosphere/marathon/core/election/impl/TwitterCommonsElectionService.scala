@@ -1,14 +1,15 @@
-package mesosphere.marathon.core.election
+package mesosphere.marathon.core.election.impl
 
 import akka.actor.ActorSystem
 import akka.event.EventStream
 import com.codahale.metrics.MetricRegistry
-import com.twitter.common.base.{ Supplier, ExceptionalCommand }
+import com.twitter.common.base.{ ExceptionalCommand, Supplier }
 import com.twitter.common.zookeeper.Candidate.Leader
 import com.twitter.common.zookeeper.Group.JoinException
-import com.twitter.common.zookeeper.{ Group, CandidateImpl, Candidate, ZooKeeperClient }
+import com.twitter.common.zookeeper.{ Candidate, CandidateImpl, Group, ZooKeeperClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionDelegate }
 import mesosphere.marathon.metrics.Metrics
 import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
@@ -53,7 +54,7 @@ class TwitterCommonsElectionService(
   //Begin Leader interface, which is required for CandidateImpl.
   override def onDefeated(): Unit = synchronized {
     log.info("Defeated (Leader Interface)")
-    stopLeadershop()
+    stopLeadership()
   }
 
   override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {

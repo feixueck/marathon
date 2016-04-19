@@ -40,7 +40,7 @@ class CoreGuiceModule extends AbstractModule {
 
   // Export classes used outside of core to guice
   @Provides @Singleton
-  def electionModule(coreModule: CoreModule): ElectionService = coreModule.electionModule
+  def electionService(coreModule: CoreModule): ElectionService = coreModule.electionModule.service
 
   @Provides @Singleton
   def leadershipModule(coreModule: CoreModule): LeadershipModule = coreModule.leadershipModule

@@ -1,19 +1,20 @@
-package mesosphere.marathon.core.election
+package mesosphere.marathon.core.election.impl
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import akka.event.EventStream
 import akka.pattern.after
-import com.codahale.metrics.{ MetricRegistry, Gauge }
+import com.codahale.metrics.{ Gauge, MetricRegistry }
 import mesosphere.marathon.MarathonConf
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionDelegate, ElectionService }
 import mesosphere.marathon.event.LocalLeadershipEvent
 import mesosphere.marathon.metrics.Metrics
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
 import scala.util.control.NonFatal
 
 abstract class ElectionServiceBase(
@@ -46,7 +47,7 @@ abstract class ElectionServiceBase(
     })
   }
 
-  protected def stopLeadershop(): Unit = synchronized {
+  protected def stopLeadership(): Unit = synchronized {
     abdicate.set(None)
 
     log.info(s"Call onDefeated leadership callbacks on ${electionCallbacks.mkString(", ")}")

@@ -1,9 +1,10 @@
-package mesosphere.marathon.core.election
+package mesosphere.marathon.core.election.impl
 
 import akka.actor.ActorSystem
 import akka.event.EventStream
 import com.codahale.metrics.MetricRegistry
 import mesosphere.marathon.MarathonConf
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionDelegate }
 import mesosphere.marathon.metrics.Metrics
 import org.slf4j.LoggerFactory
 
@@ -25,6 +26,6 @@ class PseudoElectionService(
 
   override def offerLeadershipImpl(): Unit = synchronized {
     log.info("Not using HA and therefore electing as leader by default")
-    startLeadership(_ => stopLeadershop())
+    startLeadership(_ => stopLeadership())
   }
 }

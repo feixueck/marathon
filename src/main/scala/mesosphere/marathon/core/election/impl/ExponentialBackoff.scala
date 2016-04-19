@@ -1,4 +1,4 @@
-package mesosphere.marathon.core.election
+package mesosphere.marathon.core.election.impl
 
 import org.slf4j.LoggerFactory
 

@@ -63,31 +63,18 @@ class CoreModuleImpl @Inject() (
   private[this] lazy val shutdownHookModule = ShutdownHooks()
   private[this] lazy val actorsModule = new ActorsModule(shutdownHookModule, actorSystem)
 
-  override lazy val leadershipModule = LeadershipModule(actorsModule.actorRefFactory, zk, electionModule)
-  override lazy val electionModule = if (marathonConf.highlyAvailable()) {
-    new TwitterCommonsElectionService(
-      marathonConf,
-      actorSystem,
-      eventStream,
-      httpConf,
-      metrics,
-      hostPort,
-      zk,
-      electionCallbacks,
-      marathonSchedulerService
-    )
-  }
-  else {
-    new PseudoElectionService(
-      marathonConf,
-      actorSystem,
-      eventStream,
-      metrics,
-      hostPort,
-      electionCallbacks,
-      marathonSchedulerService
-    )
-  }
+  override lazy val leadershipModule = LeadershipModule(actorsModule.actorRefFactory, zk, electionModule.service)
+  override lazy val electionModule = new ElectionModule(
+    marathonConf,
+    actorSystem,
+    eventStream,
+    httpConf,
+    metrics,
+    hostPort,
+    zk,
+    electionCallbacks,
+    marathonSchedulerService
+  )
 
   // TASKS
 
