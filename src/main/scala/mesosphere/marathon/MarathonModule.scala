@@ -2,7 +2,6 @@ package mesosphere.marathon
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Named
 
 import akka.actor.SupervisorStrategy.Restart
@@ -12,8 +11,7 @@ import akka.routing.RoundRobinPool
 import com.codahale.metrics.Gauge
 import com.google.inject._
 import com.google.inject.name.Names
-import com.twitter.common.base.Supplier
-import com.twitter.common.zookeeper.{ Candidate, Group => ZGroup, ZooKeeperClient }
+import com.twitter.common.zookeeper.ZooKeeperClient
 import com.twitter.util.JavaTimer
 import com.twitter.zk.{ NativeConnector, ZkClient }
 import mesosphere.chaos.http.HttpConf
@@ -39,7 +37,6 @@ import mesosphere.util.state.zk.{ CompressionConf, ZKStore }
 import mesosphere.util.state.{ FrameworkId, FrameworkIdUtil, PersistentStore, _ }
 import mesosphere.util.{ CapConcurrentExecutions, CapConcurrentExecutionsMetrics }
 import org.apache.mesos.state.ZooKeeperState
-import org.apache.zookeeper.ZooDefs
 import org.apache.zookeeper.ZooDefs.Ids
 import org.slf4j.LoggerFactory
 
