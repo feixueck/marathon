@@ -2,14 +2,11 @@ package mesosphere.marathon.core.election
 
 import scala.concurrent.Future
 
-trait LeadershipAbdication {
-  def abdicateLeadership(error: Boolean = false): Unit
-}
-
-trait ElectionService extends LeadershipAbdication {
+trait ElectionService {
   def isLeader: Boolean
   def leaderHostPort: Option[String]
   def offerLeadership(): Unit
+  def abdicateLeadership(error: Boolean = false): Unit
 }
 
 trait ElectionCandidate {
