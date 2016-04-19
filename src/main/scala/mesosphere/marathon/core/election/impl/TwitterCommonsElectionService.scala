@@ -32,7 +32,7 @@ class TwitterCommonsElectionService(
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val candidate = provideCandidate(zk)
 
-  override def leader: Option[String] = {
+  override def leaderHostPort: Option[String] = {
     val maybeLeaderData: Option[Array[Byte]] = try {
       Option(candidate.getLeaderData.orNull())
     }

@@ -23,7 +23,7 @@ class MarathonLeaderInfoTest extends MarathonSpec with GivenWhenThen with Matche
     Given("a leaderInfo with an ElectionService which throws exceptions")
     val f = new Fixture
     Mockito
-      .when(f.electionService.leader)
+      .when(f.electionService.leaderHostPort)
       .thenThrow(new RuntimeException("test failure!"))
 
     When("querying for currentLeaderHostPort")
