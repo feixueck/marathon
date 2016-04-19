@@ -12,14 +12,14 @@ trait ElectionService extends LeadershipAbdication {
   def offerLeadership(): Unit
 }
 
-trait ElectionDelegate {
+trait ElectionCandidate {
   def stopLeadership(): Unit
   def startLeadership(): Unit
 }
 
 trait ElectionCallback {
   /**
-    * Will get called _before_ the scheduler driver is started.
+    * Will get called _before_ the ElectionCandidate (usually the scheduler driver) starts leadership.
     */
   def onElected: Future[Unit]
 

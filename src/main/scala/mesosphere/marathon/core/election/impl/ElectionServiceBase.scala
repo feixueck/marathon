@@ -7,7 +7,7 @@ import akka.event.EventStream
 import akka.pattern.after
 import com.codahale.metrics.{ Gauge, MetricRegistry }
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.core.election.{ ElectionCallback, ElectionDelegate, ElectionService }
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate, ElectionService }
 import mesosphere.marathon.event.LocalLeadershipEvent
 import mesosphere.marathon.metrics.Metrics
 import org.slf4j.LoggerFactory
@@ -23,7 +23,7 @@ abstract class ElectionServiceBase(
     eventStream: EventStream,
     metrics: Metrics = new Metrics(new MetricRegistry),
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionDelegate) extends ElectionService {
+    delegate: ElectionCandidate) extends ElectionService {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val backoff = new ExponentialBackoff(name = "offerLeadership")
   protected type Abdicator = /* error: */ Boolean => Unit

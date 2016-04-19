@@ -20,7 +20,7 @@ class ElectionModule(
     hostPort: String,
     zk: ZooKeeperClient,
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionDelegate) {
+    delegate: ElectionCandidate) {
   lazy val service = if (config.highlyAvailable()) {
     new TwitterCommonsElectionService(
       config,

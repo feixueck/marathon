@@ -10,7 +10,7 @@ import akka.pattern.{ after, ask }
 import akka.util.Timeout
 import com.google.common.util.concurrent.AbstractExecutionThreadService
 import mesosphere.marathon.MarathonSchedulerActor._
-import mesosphere.marathon.core.election.{ ElectionDelegate, ElectionService }
+import mesosphere.marathon.core.election.{ ElectionCandidate, ElectionService }
 import mesosphere.marathon.core.leadership.LeadershipCoordinator
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.event.EventModule
@@ -47,7 +47,7 @@ class MarathonSchedulerService @Inject() (
   @Named("schedulerActor") schedulerActor: ActorRef,
   @Named(EventModule.busName) eventStream: EventStream,
   metrics: Metrics = new Metrics(new MetricRegistry))
-    extends AbstractExecutionThreadService with ElectionDelegate {
+    extends AbstractExecutionThreadService with ElectionCandidate {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

@@ -4,12 +4,12 @@ import akka.actor.ActorSystem
 import akka.event.EventStream
 import com.codahale.metrics.MetricRegistry
 import com.twitter.common.base.{ ExceptionalCommand, Supplier }
-import com.twitter.common.zookeeper.Candidate.Leader
+import com.twitter.common.zookeeper.Candidate.{ Leader => TwitterCommonsLeader }
 import com.twitter.common.zookeeper.Group.JoinException
 import com.twitter.common.zookeeper.{ Candidate, CandidateImpl, Group, ZooKeeperClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.core.election.{ ElectionCallback, ElectionDelegate }
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate }
 import mesosphere.marathon.metrics.Metrics
 import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
@@ -26,9 +26,9 @@ class TwitterCommonsElectionService(
   hostPort: String,
   zk: ZooKeeperClient,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-  delegate: ElectionDelegate) extends ElectionServiceBase(
+  delegate: ElectionCandidate) extends ElectionServiceBase(
   config, system, eventStream, metrics, electionCallbacks, delegate
-) with Leader {
+) with TwitterCommonsLeader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val candidate = provideCandidate(zk)
 
