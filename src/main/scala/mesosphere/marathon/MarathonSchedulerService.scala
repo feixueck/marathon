@@ -194,18 +194,20 @@ class MarathonSchedulerService @Inject() (
       scala.concurrent.blocking {
         driver.foreach(_.run())
       }
-    } onComplete { result => synchronized {
-      driver = None
+    } onComplete { result =>
+      synchronized {
+        driver = None
 
-      log.info(s"Driver future completed with result=$result.")
-      result match {
-        case Failure(t) => log.error("Exception while running driver", t)
-        case _ =>
+        log.info(s"Driver future completed with result=$result.")
+        result match {
+          case Failure(t) => log.error("Exception while running driver", t)
+          case _          =>
+        }
+
+        // tell leader election that we step back, but want to be re-elected if isRunning is true.
+        electionService.abdicateLeadership(error = result.isFailure, reoffer = latch.getCount > 0)
       }
-
-      // tell leader election that we step back, but want to be re-elected if isRunning is true.
-      electionService.abdicateLeadership(error=result.isFailure, reoffer = latch.getCount > 0)
-    }}
+    }
   }
 
   def stopLeadership(): Unit = synchronized {
@@ -222,7 +224,8 @@ class MarathonSchedulerService @Inject() (
       // Note that abdication command will be ran upon driver shutdown which
       // will then offer leadership again.
       stopDriver()
-    } else {
+    }
+    else {
       electionService.offerLeadership()
     }
   }

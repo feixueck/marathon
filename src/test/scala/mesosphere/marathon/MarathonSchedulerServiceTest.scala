@@ -325,6 +325,6 @@ class MarathonSchedulerServiceTest
     when(driver.run()).thenThrow(new RuntimeException("driver failure"))
 
     schedulerService.startLeadership()
-    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true, reoffer=true)
+    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error = true, reoffer = true)
   }
 }

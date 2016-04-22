@@ -21,7 +21,9 @@ trait LeadershipModule {
 }
 
 object LeadershipModule {
-  def apply(actorRefFactory: ActorRefFactory, zk: ZooKeeperClient, electionService: ElectionService): LeadershipModule = {
+  def apply(
+    actorRefFactory: ActorRefFactory,
+    zk: ZooKeeperClient, electionService: ElectionService): LeadershipModule = {
     new LeadershipModuleImpl(actorRefFactory, zk, electionService)
   }
 }

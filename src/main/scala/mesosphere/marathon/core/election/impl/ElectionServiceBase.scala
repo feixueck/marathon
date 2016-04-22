@@ -42,11 +42,13 @@ abstract class ElectionServiceBase(
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def isLeader: Boolean = synchronized { state match {
-    case Leading(_) => true
-    case Abdicating(_, _) => true
-    case _ => false
-  }}
+  override def isLeader: Boolean = synchronized {
+    state match {
+      case Leading(_)       => true
+      case Abdicating(_, _) => true
+      case _                => false
+    }
+  }
 
   override def abdicateLeadership(error: Boolean = false, reoffer: Boolean = false): Unit = synchronized {
     state match {
@@ -97,23 +99,25 @@ abstract class ElectionServiceBase(
     }, {
       // backoff idle case
       state = Offering()
-      after(backoff.value(), system.scheduler)(Future { synchronized {
-        setOfferState({
-          // now after backoff actually set Offered state
-          state = Offered()
-          offerLeadershipImpl()
-        }, {
-          // state became Idle meanwhile
-          log.info("Canceling leadership offer attempt")
-        })
-      }})
+      after(backoff.value(), system.scheduler)(Future {
+        synchronized {
+          setOfferState({
+            // now after backoff actually set Offered state
+            state = Offered()
+            offerLeadershipImpl()
+          }, {
+            // state became Idle meanwhile
+            log.info("Canceling leadership offer attempt")
+          })
+        }
+      })
     })
   }
 
   protected def stopLeadership(): Unit = synchronized {
     val (reoffer, shortcut) = state match {
       case Abdicating(ro, sc) => (ro, sc)
-      case _ => (false, false)
+      case _                  => (false, false)
     }
     state = Idle()
 

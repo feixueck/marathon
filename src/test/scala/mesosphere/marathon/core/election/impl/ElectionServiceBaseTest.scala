@@ -8,16 +8,16 @@ import akka.testkit.TestProbe
 import com.codahale.metrics.MetricRegistry
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.event.LocalLeadershipEvent
-import mesosphere.marathon.{MarathonSpec, MarathonConf}
-import mesosphere.marathon.core.election.{ElectionCallback, ElectionCandidate, ElectionService}
+import mesosphere.marathon.{ MarathonSpec, MarathonConf }
+import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate, ElectionService }
 import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.test.MarathonActorSupport
 import org.mockito.Matchers.{ any, eq => mockEq }
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.mockito.{InOrder, Mockito}
+import org.mockito.{ InOrder, Mockito }
 import org.rogach.scallop.ScallopOption
-import org.scalatest.{GivenWhenThen, BeforeAndAfterAll, Matchers}
+import org.scalatest.{ GivenWhenThen, BeforeAndAfterAll, Matchers }
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
@@ -48,7 +48,7 @@ object ElectionServiceBaseTest {
 }
 
 class ElectionServiceBaseTest
-  extends MarathonActorSupport
+    extends MarathonActorSupport
     with MarathonSpec
     with GivenWhenThen
     with BeforeAndAfterAll
@@ -143,22 +143,22 @@ class ElectionServiceBaseTest
     awaitAssert(electionService.state should equal(Offered()))
     electionService.abdicateLeadership()
     Then("state is Abdicating with reoffer=false")
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=false)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = false)))
 
     Given("leadership is abdicated again")
     electionService.abdicateLeadership()
     Then("state is still Abdicating with reoffer=false")
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=false)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = false)))
 
     Given("leadership is abdicated again with reoffer=true")
-    electionService.abdicateLeadership(reoffer=true)
+    electionService.abdicateLeadership(reoffer = true)
     Then("state is still Abdicating with reoffer=true")
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=true)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = true)))
 
     Given("leadership is abdicated already with reoffer=true and the new reoffer is false")
-    electionService.abdicateLeadership(reoffer=false)
+    electionService.abdicateLeadership(reoffer = false)
     Then("state stays Abdicting with reoffer=true")
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=true)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = true)))
   }
 
   test("offerLeadership while abdicating") {
@@ -172,10 +172,10 @@ class ElectionServiceBaseTest
     Given("leadership is offered, immediately abdicated and then offered again")
     electionService.offerLeadership()
     electionService.abdicateLeadership()
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=false)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = false)))
     Then("state is still Abdicating, but with reoffer=true")
     electionService.offerLeadership()
-    awaitAssert(electionService.state should equal(Abdicating(reoffer=true)))
+    awaitAssert(electionService.state should equal(Abdicating(reoffer = true)))
   }
 
   test("callbacks are called") {
@@ -202,7 +202,7 @@ class ElectionServiceBaseTest
     awaitAssert(order.verify(candidate).startLeadership())
 
     Given("this instance is abdicating")
-    electionService.abdicateLeadership(reoffer=false)
+    electionService.abdicateLeadership(reoffer = false)
     awaitAssert(electionService.state.isInstanceOf[Idle])
 
     Then("the callbacks are called first, then the candidate")
@@ -232,7 +232,7 @@ class ElectionServiceBaseTest
     awaitAssert(order.verify(events).publish(LocalLeadershipEvent.ElectedAsLeader))
 
     Given("this instance is abdicating")
-    electionService.abdicateLeadership(reoffer=false)
+    electionService.abdicateLeadership(reoffer = false)
     awaitAssert(electionService.state.isInstanceOf[Idle])
 
     Then("the candidate is called, then an event is published")
@@ -251,7 +251,7 @@ class ElectionServiceBaseTest
     Given("this instance is becoming leader and then abdicting with reoffer=true")
     electionService.offerLeadership()
     awaitAssert(electionService.state.isInstanceOf[Leading])
-    electionService.abdicateLeadership(reoffer=true)
+    electionService.abdicateLeadership(reoffer = true)
 
     Then("then the instance is reoffering candidacy")
     awaitAssert(electionService.state.isInstanceOf[Offered])
