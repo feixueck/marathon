@@ -244,7 +244,6 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      //override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
     }
 
     import java.util.concurrent.TimeoutException
@@ -261,7 +260,8 @@ class MarathonSchedulerServiceTest
       schedulerService.startLeadership()
     }
     catch {
-      case _: TimeoutException => schedulerService.stopLeadership()
+      case _: TimeoutException =>
+        schedulerService.stopLeadership()
     }
 
     verify(electionService, Mockito.timeout(1000)).offerLeadership()
@@ -284,52 +284,19 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def startLeadership(): Unit = ()
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
     when(driverFactory.createDriver()).thenThrow(new Exception("Some weird exception"))
 
-    schedulerService.startLeadership()
-    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error = true)
-
-    schedulerService.stopLeadership()
-    verify(electionService, Mockito.timeout(1000)).offerLeadership()
-  }
-
-  test("Abdicate leadership when prepareStart throws an exception") {
-    when(frameworkIdUtil.fetch()).thenReturn(None)
-    val driverFactory = mock[SchedulerDriverFactory]
-
-    val schedulerService = new MarathonSchedulerService(
-      leadershipCoordinator,
-      healthCheckManager,
-      config,
-      frameworkIdUtil,
-      electionService,
-      appRepository,
-      driverFactory,
-      system,
-      migration,
-      schedulerActor,
-      events
-    ) {
-      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
-      override def startLeadership(): Unit = ()
-    }
-
-    when(leadershipCoordinator.prepareForStart()).thenReturn(Future.failed(new RuntimeException("fail")))
-    when(driverFactory.createDriver()).thenReturn(mock[SchedulerDriver])
-
     try {
       schedulerService.startLeadership()
     }
     catch {
-      case _: RuntimeException => schedulerService.stopLeadership()
+      case e: Exception => schedulerService.stopLeadership()
     }
 
-    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true)
+    verify(electionService, Mockito.timeout(1000)).offerLeadership()
   }
 
   test("Abdicate leadership when driver ends with error") {
@@ -350,7 +317,6 @@ class MarathonSchedulerServiceTest
       schedulerActor,
       events
     ) {
-      // override lazy val initialOfferLeadershipBackOff: FiniteDuration = 1.milliseconds
     }
 
     when(leadershipCoordinator.prepareForStart()).thenReturn(Future.successful(()))
@@ -359,9 +325,6 @@ class MarathonSchedulerServiceTest
     when(driver.run()).thenThrow(new RuntimeException("driver failure"))
 
     schedulerService.startLeadership()
-    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true)
-
-    schedulerService.stopLeadership()
-    verify(electionService, Mockito.timeout(1000)).offerLeadership()
+    verify(electionService, Mockito.timeout(1000)).abdicateLeadership(error=true, reoffer=true)
   }
 }

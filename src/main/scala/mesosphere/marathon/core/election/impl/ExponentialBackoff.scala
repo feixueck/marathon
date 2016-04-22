@@ -4,14 +4,20 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 
+trait Backoff {
+  def value(): FiniteDuration
+  def increase(): Unit
+  def reset(): Unit
+}
+
 private class ExponentialBackoff(
     initialValue: FiniteDuration = 0.5.seconds,
     maximumValue: FiniteDuration = 16.seconds,
-    name: String = "unnamed") {
+    name: String = "unnamed") extends Backoff {
   private val log = LoggerFactory.getLogger(getClass.getName)
   private var v = initialValue
 
-  def value(): FiniteDuration = v
+  def value(): FiniteDuration = synchronized { v }
 
   def increase(): Unit = synchronized {
     if (v <= maximumValue) {

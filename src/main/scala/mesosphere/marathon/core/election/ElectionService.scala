@@ -27,8 +27,9 @@ trait ElectionService {
    * abdicateLeadership is called to resign from leadership. If this instance is no leader, this
    * call does nothing.
    * @param error is true if the abdication is due to some error.
+   * @param reoffer is true if leadership should be offered again after abdiction
    */
-  def abdicateLeadership(error: Boolean = false): Unit
+  def abdicateLeadership(error: Boolean = false, reoffer: Boolean = false): Unit
 }
 
 /**

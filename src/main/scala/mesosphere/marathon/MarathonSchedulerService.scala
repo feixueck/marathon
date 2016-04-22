@@ -133,9 +133,7 @@ class MarathonSchedulerService @Inject() (
   override def run(): Unit = {
     log.info("Beginning run")
 
-    // The first thing we do is offer our leadership. If using ZooKeeper for
-    // leadership election then we will wait to be elected. If we aren't (i.e.
-    // no HA) then we take over leadership run the driver immediately.
+    // The first thing we do is offer our leadership.
     electionService.offerLeadership()
 
     // Block on the latch which will be countdown only when shutdown has been
@@ -156,9 +154,8 @@ class MarathonSchedulerService @Inject() (
     log.info("Cancelling timer")
     timer.cancel()
 
-    log.info("Removing the blocking of run()")
-
     // The countdown latch blocks run() from exiting. Counting down the latch removes the block.
+    log.info("Removing the blocking of run()")
     latch.countDown()
 
     super.triggerShutdown()
@@ -174,7 +171,7 @@ class MarathonSchedulerService @Inject() (
 
   //End Service interface
 
-  //Begin ElectionDelegate interface
+  //Begin ElectionCandidate interface
 
   def startLeadership(): Unit = synchronized {
     log.info("Elect leadership, running driver")
@@ -197,18 +194,18 @@ class MarathonSchedulerService @Inject() (
       scala.concurrent.blocking {
         driver.foreach(_.run())
       }
-    } onComplete {
-      case Success(_) =>
-        log.info("Driver future completed. Abdicating leadership.")
+    } onComplete { result => synchronized {
+      driver = None
 
-        // tell leader election that we step back. This will call defeatLeadership which
-        // will re-offer leadership (if isRunning is true).
-        electionService.abdicateLeadership()
+      log.info(s"Driver future completed with result=$result.")
+      result match {
+        case Failure(t) => log.error("Exception while running driver", t)
+        case _ =>
+      }
 
-      case Failure(t) =>
-        log.error("Exception while running driver", t)
-        electionService.abdicateLeadership(error = true)
-    }
+      // tell leader election that we step back, but want to be re-elected if isRunning is true.
+      electionService.abdicateLeadership(error=result.isFailure, reoffer = latch.getCount > 0)
+    }}
   }
 
   def stopLeadership(): Unit = synchronized {
@@ -220,12 +217,12 @@ class MarathonSchedulerService @Inject() (
     timer = newTimer()
     oldTimer.cancel()
 
-    // Our leadership has been defeated. Thus, stop the driver.
-    // Note that abdication command will be ran upon driver shutdown.
-    stopDriver()
-
-    // re-offer leadership
-    if (isRunning) {
+    if (driver.isDefined) {
+      // Our leadership has been defeated. Thus, stop the driver.
+      // Note that abdication command will be ran upon driver shutdown which
+      // will then offer leadership again.
+      stopDriver()
+    } else {
       electionService.offerLeadership()
     }
   }
