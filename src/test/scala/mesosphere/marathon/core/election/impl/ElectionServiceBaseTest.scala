@@ -57,11 +57,9 @@ class ElectionServiceBaseTest
   import ElectionServiceBaseTest._
   import ElectionServiceBase._
 
-  private[this] var probe: TestProbe = _
   private[this] var config: MarathonConf = _
   private[this] var httpConfig: HttpConf = _
   private[this] var electionService: ElectionService = _
-  private[this] var schedulerActor: ActorRef = _
   private[this] var events: EventStream = _
   private[this] var candidate: ElectionCandidate = _
   private[this] var metrics: Metrics = _
@@ -70,11 +68,9 @@ class ElectionServiceBaseTest
   import scala.concurrent.ExecutionContext.Implicits.global
 
   before {
-    probe = TestProbe()
     config = mockConfig
     httpConfig = mock[HttpConf]
     electionService = mock[ElectionService]
-    schedulerActor = probe.ref
     events = new EventStream()
     candidate = mock[ElectionCandidate]
     metrics = new Metrics(new MetricRegistry)
