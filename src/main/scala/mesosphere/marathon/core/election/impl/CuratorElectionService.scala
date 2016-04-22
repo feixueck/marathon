@@ -3,19 +3,17 @@ package mesosphere.marathon.core.election.impl
 import akka.actor.ActorSystem
 import akka.event.EventStream
 import com.codahale.metrics.MetricRegistry
-import com.twitter.common.base.{ ExceptionalCommand, Supplier }
-import com.twitter.common.zookeeper.Candidate.{ Leader => TwitterCommonsLeader }
-import com.twitter.common.zookeeper.Group.JoinException
-import com.twitter.common.zookeeper.{ Candidate, CandidateImpl, Group, ZooKeeperClient }
+import com.twitter.common.zookeeper.ZooKeeperClient
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
 import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate }
 import mesosphere.marathon.metrics.Metrics
-import org.apache.zookeeper.ZooDefs
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
+import org.apache.curator.framework.recipes.leader.{ LeaderLatch, LeaderLatchListener }
+import org.apache.curator.retry.ExponentialBackoffRetry
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
-import scala.util.control.NonFatal
 
 class CuratorElectionService(
     config: MarathonConf,
@@ -26,54 +24,49 @@ class CuratorElectionService(
     hostPort: String,
     zk: ZooKeeperClient,
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionCandidate) extends ElectionServiceBase(
-  config, system, eventStream, metrics, electionCallbacks, delegate
-) with TwitterCommonsLeader {
+    delegate: ElectionCandidate,
+    backoff: ExponentialBackoff
+) extends ElectionServiceBase(
+  config, system, eventStream, metrics, electionCallbacks, delegate, backoff
+) with LeaderLatchListener {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
-  private lazy val candidate = provideCandidate(zk)
 
-  override def leaderHostPort: Option[String] = {
-    val maybeLeaderData: Option[Array[Byte]] = try {
-      Option(candidate.getLeaderData.orNull())
-    }
-    catch {
-      case NonFatal(e) =>
-        log.error("error while getting current leader", e)
-        None
-    }
-    maybeLeaderData.map { data =>
-      new String(data, "UTF-8")
-    }
+  private lazy val maxZookeeperBackoffTime = 1000 * 300
+  private lazy val minZookeeperBackoffTime = 500
+
+  private lazy val latch = new LeaderLatch(provideCuratorClient(zk), "curator-leader", hostPort)
+
+  override def leaderHostPort: Option[String] = synchronized {
+    val l = latch.getLeader
+    if (l.isLeader) Some(l.getId) else None
   }
 
-  override def offerLeadershipImpl(): Unit = candidate.synchronized {
+  override def offerLeadershipImpl(): Unit = synchronized {
     log.info("Using HA and therefore offering leadership")
-    candidate.offerLeadership(this)
+    latch.addListener(this) // idem-potent
+    latch.start()
   }
 
-  //Begin Leader interface, which is required for CandidateImpl.
-  override def onDefeated(): Unit = synchronized {
+  //Begin LeaderLatchListener interface
+  override def notLeader(): Unit = synchronized {
     log.info("Defeated (Leader Interface)")
     stopLeadership()
   }
 
-  override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {
+  override def isLeader(): Unit = synchronized {
     log.info("Elected (Leader Interface)")
-    startLeadership(error => {
-      abdicateCmd.execute()
-      // stopLeadership() is called in onDefeated
+    startLeadership(error => synchronized {
+      latch.close()
+      // stopLeadership() is called in notLeader
     })
   }
   //End Leader interface
 
-  def provideCandidate(zk: ZooKeeperClient): Candidate = {
-    log.info("Registering in ZooKeeper with hostPort:" + hostPort)
-    new CandidateImpl(new Group(zk, ZooDefs.Ids.OPEN_ACL_UNSAFE, config.zooKeeperLeaderPath),
-      new Supplier[Array[Byte]] {
-        def get(): Array[Byte] = {
-          hostPort.getBytes("UTF-8")
-        }
-      }
-    )
+  private def provideCuratorClient(zk: ZooKeeperClient): CuratorFramework = {
+    val client = CuratorFrameworkFactory.newClient(zk.getConnectString,
+      new ExponentialBackoffRetry(minZookeeperBackoffTime, maxZookeeperBackoffTime))
+    client.start()
+    client.getZookeeperClient.blockUntilConnectedOrTimedOut()
+    client
   }
 }

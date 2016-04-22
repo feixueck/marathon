@@ -33,7 +33,7 @@ abstract class ElectionServiceBase(
     metrics: Metrics = new Metrics(new MetricRegistry),
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
     candidate: ElectionCandidate,
-    backoff: Backoff = new ExponentialBackoff(name = "offerLeadership")) extends ElectionService {
+    backoff: Backoff) extends ElectionService {
   import ElectionServiceBase._
 
   private lazy val log = LoggerFactory.getLogger(getClass.getName)

@@ -10,7 +10,7 @@ trait Backoff {
   def reset(): Unit
 }
 
-private class ExponentialBackoff(
+class ExponentialBackoff(
     initialValue: FiniteDuration = 0.5.seconds,
     maximumValue: FiniteDuration = 16.seconds,
     name: String = "unnamed") extends Backoff {

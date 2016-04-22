@@ -26,15 +26,17 @@ class TwitterCommonsElectionService(
   hostPort: String,
   zk: ZooKeeperClient,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-  delegate: ElectionCandidate) extends ElectionServiceBase(
-  config, system, eventStream, metrics, electionCallbacks, delegate
+  candidate: ElectionCandidate,
+  backoff: Backoff
+) extends ElectionServiceBase(
+  config, system, eventStream, metrics, electionCallbacks, candidate, backoff
 ) with TwitterCommonsLeader {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
-  private lazy val candidate = provideCandidate(zk)
+  private lazy val commonsCandidate = provideCandidate(zk)
 
-  override def leaderHostPort: Option[String] = {
+  override def leaderHostPort: Option[String] = synchronized {
     val maybeLeaderData: Option[Array[Byte]] = try {
-      Option(candidate.getLeaderData.orNull())
+      Option(commonsCandidate.getLeaderData.orNull())
     }
     catch {
       case NonFatal(e) =>
@@ -46,9 +48,9 @@ class TwitterCommonsElectionService(
     }
   }
 
-  override def offerLeadershipImpl(): Unit = candidate.synchronized {
+  override def offerLeadershipImpl(): Unit = synchronized {
     log.info("Using HA and therefore offering leadership")
-    candidate.offerLeadership(this)
+    commonsCandidate.offerLeadership(this)
   }
 
   //Begin Leader interface, which is required for CandidateImpl.
@@ -59,14 +61,14 @@ class TwitterCommonsElectionService(
 
   override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {
     log.info("Elected (Leader Interface)")
-    startLeadership(error => {
+    startLeadership(error => synchronized {
       abdicateCmd.execute()
       // stopLeadership() is called in onDefeated
     })
   }
   //End Leader interface
 
-  def provideCandidate(zk: ZooKeeperClient): Candidate = {
+  private def provideCandidate(zk: ZooKeeperClient): Candidate = {
     log.info("Registering in ZooKeeper with hostPort:" + hostPort)
     new CandidateImpl(new Group(zk, ZooDefs.Ids.OPEN_ACL_UNSAFE, config.zooKeeperLeaderPath),
       new Supplier[Array[Byte]] {
