@@ -22,7 +22,12 @@ class MarathonLeaderInfo @Inject() (
   override def elected: Boolean = electionService.isLeader
 
   override def currentLeaderHostPort(): Option[String] = metrics.getLeaderDataTimer {
-    electionService.leaderHostPort
+    try {
+      electionService.leaderHostPort
+    }
+    catch {
+      case e: java.lang.Exception => None
+    }
   }
 
   /**
