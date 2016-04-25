@@ -24,11 +24,11 @@ import mesosphere.marathon.core.task.bus.TaskBusModule
 import mesosphere.marathon.core.task.jobs.TaskJobsModule
 import mesosphere.marathon.core.task.tracker.TaskTrackerModule
 import mesosphere.marathon.core.task.update.TaskUpdateStep
+import mesosphere.marathon.event.EventModule
 import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.{ GroupRepository, AppRepository, TaskRepository }
-import mesosphere.marathon.{ MarathonSchedulerService, MarathonConf, MarathonSchedulerDriverHolder, ModuleNames }
+import mesosphere.marathon.{ MarathonConf, MarathonSchedulerDriverHolder, ModuleNames }
 
-import scala.collection.immutable.Seq
 import scala.util.Random
 
 /**
@@ -41,13 +41,12 @@ class CoreModuleImpl @Inject() (
     // external dependencies still wired by guice
     zk: ZooKeeperClient,
     marathonConf: MarathonConf,
-    eventStream: EventStream,
+    @Named(EventModule.busName) eventStream: EventStream,
     httpConf: HttpConf,
     @Named(ModuleNames.HOST_PORT) hostPort: String,
     metrics: Metrics,
     actorSystem: ActorSystem,
     marathonSchedulerDriverHolder: MarathonSchedulerDriverHolder,
-    marathonSchedulerService: MarathonSchedulerService,
     appRepository: AppRepository,
     groupRepository: GroupRepository,
     taskRepository: TaskRepository,
@@ -72,8 +71,7 @@ class CoreModuleImpl @Inject() (
     metrics,
     hostPort,
     zk,
-    electionCallbacks,
-    marathonSchedulerService
+    electionCallbacks
   )
 
   // TASKS

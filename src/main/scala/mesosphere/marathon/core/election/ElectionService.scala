@@ -20,8 +20,9 @@ trait ElectionService {
 
   /**
     * offerLeadership is called to candidate for leadership. offerLeadership is idem-potent.
+    * @param candidate is called back once elected or defeated
     */
-  def offerLeadership(): Unit
+  def offerLeadership(candidate: ElectionCandidate): Unit
 
   /**
     * abdicateLeadership is called to resign from leadership. If this instance is no leader, this

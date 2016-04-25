@@ -4,7 +4,7 @@ import javax.inject.Named
 
 import akka.actor.ActorRefFactory
 import com.google.inject.name.Names
-import com.google.inject.{ AbstractModule, Provides, Scopes, Singleton }
+import com.google.inject._
 import mesosphere.marathon.MarathonConf
 import mesosphere.marathon.core.appinfo.{ AppInfoModule, AppInfoService, GroupInfoService }
 import mesosphere.marathon.core.base.Clock

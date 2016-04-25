@@ -10,7 +10,6 @@ import mesosphere.marathon.event.LocalLeadershipEvent
 import mesosphere.marathon.metrics.Metrics
 import org.slf4j.LoggerFactory
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
 import scala.util.control.NonFatal
@@ -18,12 +17,21 @@ import scala.util.control.NonFatal
 private[impl] object ElectionServiceBase {
   protected type Abdicator = /* error: */ Boolean => Unit
 
-  abstract class State
-  case class Idle() extends State
-  case class Leading(abdicate: Abdicator) extends State
-  case class Abdicating(reoffer: Boolean, shortcut: Boolean = false) extends State
-  case class Offering() extends State
-  case class Offered() extends State
+  abstract class State {
+    def getCandidate(): Option[ElectionCandidate] = this match {
+      case Idle(c)             => c
+      case Leading(c, _)       => Some(c)
+      case Abdicating(c, _, _) => Some(c)
+      case Offering(c)         => Some(c)
+      case Offered(c)          => Some(c)
+    }
+  }
+
+  case class Idle(candidate: Option[ElectionCandidate]) extends State
+  case class Leading(candidate: ElectionCandidate, abdicate: Abdicator) extends State
+  case class Abdicating(candidate: ElectionCandidate, reoffer: Boolean, shortcut: Boolean = false) extends State
+  case class Offering(candidate: ElectionCandidate) extends State
+  case class Offered(candidate: ElectionCandidate) extends State
 }
 
 abstract class ElectionServiceBase(
@@ -32,43 +40,45 @@ abstract class ElectionServiceBase(
     eventStream: EventStream,
     metrics: Metrics = new Metrics(new MetricRegistry),
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    candidate: ElectionCandidate,
     backoff: Backoff) extends ElectionService {
   import ElectionServiceBase._
 
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
 
-  private[impl] var state: State = Idle()
+  private[impl] var state: State = Idle(candidate = None)
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
   override def isLeader: Boolean = synchronized {
     state match {
-      case Leading(_)       => true
-      case Abdicating(_, _) => true
-      case _                => false
+      case Leading(_, _)       => true
+      case Abdicating(_, _, _) => true
+      case _                   => false
     }
   }
 
   override def abdicateLeadership(error: Boolean = false, reoffer: Boolean = false): Unit = synchronized {
     state match {
-      case Leading(abdicate) =>
+      case Leading(candidate, abdicate) =>
         log.info("Abdicating leadership while leading")
-        state = Abdicating(reoffer)
+        state = Abdicating(candidate, reoffer)
         abdicate(error)
-      case Abdicating(alreadyReoffering, shortcut) =>
+      case Abdicating(candidate, alreadyReoffering, shortcut) =>
         log.info("Abdicating leadership while already in process of abdicating")
-        state = Abdicating(alreadyReoffering || reoffer, shortcut)
-      case Offering() =>
+        state = Abdicating(candidate, alreadyReoffering || reoffer, shortcut)
+      case Offering(candidate) =>
         log.info("Canceling leadership offer waiting for backoff")
-        state = Abdicating(reoffer)
-      case Offered() =>
+        state = Abdicating(candidate, reoffer)
+      case Offered(candidate) =>
         log.info("Abdicating leadership while candidating")
-        state = Abdicating(reoffer)
-      case Idle() =>
+        state = Abdicating(candidate, reoffer)
+      case Idle(candidate) =>
         log.info("Abdicating leadership while being NO candidate")
         if (reoffer) {
-          offerLeadership()
+          candidate match {
+            case None    => log.error("Cannot reoffer leadership without being a leadership candidate")
+            case Some(c) => offerLeadership(c)
+          }
         }
     }
   }
@@ -77,33 +87,33 @@ abstract class ElectionServiceBase(
 
   private def setOfferState(offeringCase: => Unit, idleCase: => Unit): Unit = synchronized {
     state match {
-      case Abdicating(reoffer, shortcut) =>
+      case Abdicating(candidate, reoffer, shortcut) =>
         log.error("Will reoffer leadership after abdicating")
-        state = Abdicating(reoffer = true, shortcut)
-      case Leading(abdicate) =>
+        state = Abdicating(candidate, reoffer = true, shortcut)
+      case Leading(candidate, abdicate) =>
         log.info("Ignoring leadership offer while being leader")
-      case Offering() =>
+      case Offering(candidate) =>
         offeringCase
-      case Offered() =>
+      case Offered(candidate) =>
         log.info("Ignoring repeated leadership offer")
-      case Idle() =>
+      case Idle(candidate) =>
         idleCase
     }
   }
 
-  override def offerLeadership(): Unit = synchronized {
+  override def offerLeadership(candidate: ElectionCandidate): Unit = synchronized {
     log.info(s"Will offer leadership after ${backoff.value()} backoff")
     setOfferState({
       // some offering attempt is running
       log.info("Ignoring repeated leadership offer")
     }, {
       // backoff idle case
-      state = Offering()
+      state = Offering(candidate)
       after(backoff.value(), system.scheduler)(Future {
         synchronized {
           setOfferState({
             // now after backoff actually set Offered state
-            state = Offered()
+            state = Offered(candidate)
             offerLeadershipImpl()
           }, {
             // state became Idle meanwhile
@@ -115,11 +125,14 @@ abstract class ElectionServiceBase(
   }
 
   protected def stopLeadership(): Unit = synchronized {
-    val (reoffer, shortcut) = state match {
-      case Abdicating(ro, sc) => (ro, sc)
-      case _                  => (false, false)
+    val (candidate, reoffer, shortcut) = state match {
+      case Leading(c, a)         => (c, false, false)
+      case Abdicating(c, ro, sc) => (c, ro, sc)
+      case Offered(c)            => (c, false, false)
+      case Offering(c)           => (c, false, false)
+      case Idle(c)               => (c.get, false, false)
     }
-    state = Idle()
+    state = Idle(Some(candidate))
 
     if (!shortcut) {
       log.info(s"Call onDefeated leadership callbacks on ${electionCallbacks.mkString(", ")}")
@@ -134,7 +147,7 @@ abstract class ElectionServiceBase(
 
     // call abdiction continuations
     if (reoffer) {
-      offerLeadership()
+      offerLeadership(candidate)
     }
   }
 
@@ -145,12 +158,13 @@ abstract class ElectionServiceBase(
     }
 
     state match {
-      case Abdicating(reoffer, _) =>
+      case Abdicating(candidate, reoffer, _) =>
         log.info("Became leader and abdicating immediately")
-        state = Abdicating(reoffer, shortcut = true)
+        state = Abdicating(candidate, reoffer, shortcut = true)
         abdicate
       case _ =>
-        state = Leading(backoffAbdicate)
+        val candidate = state.getCandidate().get // Idle(None) is not possible
+        state = Leading(candidate, backoffAbdicate)
         try {
           // Start the leader duration metric
           startMetrics()

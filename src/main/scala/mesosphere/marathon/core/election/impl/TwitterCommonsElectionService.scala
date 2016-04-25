@@ -9,12 +9,11 @@ import com.twitter.common.zookeeper.Group.JoinException
 import com.twitter.common.zookeeper.{ Candidate, CandidateImpl, Group, ZooKeeperClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate }
+import mesosphere.marathon.core.election.ElectionCallback
 import mesosphere.marathon.metrics.Metrics
 import org.apache.zookeeper.ZooDefs
 import org.slf4j.LoggerFactory
 
-import scala.collection.immutable.Seq
 import scala.util.control.NonFatal
 
 class TwitterCommonsElectionService(
@@ -26,9 +25,8 @@ class TwitterCommonsElectionService(
   hostPort: String,
   zk: ZooKeeperClient,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-  candidate: ElectionCandidate,
   backoff: Backoff) extends ElectionServiceBase(
-  config, system, eventStream, metrics, electionCallbacks, candidate, backoff
+  config, system, eventStream, metrics, electionCallbacks, backoff
 ) {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val commonsCandidate = provideCandidate(zk)

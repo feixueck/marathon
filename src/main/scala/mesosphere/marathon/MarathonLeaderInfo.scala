@@ -12,7 +12,7 @@ import mesosphere.marathon.metrics.Metrics.Timer
 import org.slf4j.LoggerFactory
 
 class MarathonLeaderInfo @Inject() (
-    @Inject electionService: ElectionService,
+    electionService: ElectionService,
     @Named(EventModule.busName) eventStream: EventStream,
     metrics: MarathonLeaderInfoMetrics) extends LeaderInfo {
 

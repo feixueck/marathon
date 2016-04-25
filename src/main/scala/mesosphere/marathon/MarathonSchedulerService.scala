@@ -39,7 +39,7 @@ class MarathonSchedulerService @Inject() (
   healthCheckManager: HealthCheckManager,
   config: MarathonConf,
   frameworkIdUtil: FrameworkIdUtil,
-  @Inject electionService: ElectionService,
+  electionService: ElectionService,
   appRepository: AppRepository,
   driverFactory: SchedulerDriverFactory,
   system: ActorSystem,
@@ -134,7 +134,7 @@ class MarathonSchedulerService @Inject() (
     log.info("Beginning run")
 
     // The first thing we do is offer our leadership.
-    electionService.offerLeadership()
+    electionService.offerLeadership(this)
 
     // Block on the latch which will be countdown only when shutdown has been
     // triggered. This is to prevent run()
@@ -226,7 +226,7 @@ class MarathonSchedulerService @Inject() (
       stopDriver()
     }
     else {
-      electionService.offerLeadership()
+      electionService.offerLeadership(this)
     }
   }
 

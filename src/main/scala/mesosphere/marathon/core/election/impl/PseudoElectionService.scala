@@ -4,11 +4,9 @@ import akka.actor.ActorSystem
 import akka.event.EventStream
 import com.codahale.metrics.MetricRegistry
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate }
+import mesosphere.marathon.core.election.ElectionCallback
 import mesosphere.marathon.metrics.Metrics
 import org.slf4j.LoggerFactory
-
-import scala.collection.immutable.Seq
 
 class PseudoElectionService(
   config: MarathonConf,
@@ -17,9 +15,8 @@ class PseudoElectionService(
   metrics: Metrics = new Metrics(new MetricRegistry),
   hostPort: String,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-  delegate: ElectionCandidate,
   backoff: ExponentialBackoff) extends ElectionServiceBase(
-  config, system, eventStream, metrics, electionCallbacks, delegate, backoff
+  config, system, eventStream, metrics, electionCallbacks, backoff
 ) {
   private val log = LoggerFactory.getLogger(getClass.getName)
 

@@ -13,8 +13,6 @@ import mesosphere.marathon.core.election.impl.{
 }
 import mesosphere.marathon.metrics.Metrics
 
-import scala.collection.immutable.Seq
-
 class ElectionModule(
     config: MarathonConf,
     system: ActorSystem,
@@ -23,8 +21,7 @@ class ElectionModule(
     metrics: Metrics = new Metrics(new MetricRegistry),
     hostPort: String,
     zk: ZooKeeperClient,
-    electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    candidate: ElectionCandidate) {
+    electionCallbacks: Seq[ElectionCallback] = Seq.empty) {
   lazy val service: ElectionService = if (config.highlyAvailable()) {
     new CuratorElectionService(
       config,
@@ -35,7 +32,6 @@ class ElectionModule(
       hostPort,
       zk,
       electionCallbacks,
-      candidate,
       new ExponentialBackoff(name = "offerLeadership")
     )
   }
@@ -47,7 +43,6 @@ class ElectionModule(
       metrics,
       hostPort,
       electionCallbacks,
-      candidate,
       new ExponentialBackoff(name = "offerLeadership")
     )
   }

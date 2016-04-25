@@ -17,11 +17,10 @@ import com.twitter.zk.{ NativeConnector, ZkClient }
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.Protos.MarathonTask
 import mesosphere.marathon.api.LeaderInfo
-import mesosphere.marathon.core.election.{ ElectionService, ElectionCallback }
+import mesosphere.marathon.core.election.ElectionCallback
 import mesosphere.marathon.core.launcher.TaskOpFactory
 import mesosphere.marathon.core.launcher.impl.TaskOpFactoryImpl
 import mesosphere.marathon.core.launchqueue.LaunchQueue
-import mesosphere.marathon.core.leadership.CandidateImpl
 import mesosphere.marathon.core.readiness.ReadinessCheckExecutor
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.event.http._
@@ -41,7 +40,6 @@ import org.apache.zookeeper.ZooDefs.Ids
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.Seq
 import scala.concurrent.Await
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
@@ -87,8 +85,6 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
     bind(classOf[MarathonSchedulerService]).in(Scopes.SINGLETON)
     bind(classOf[LeaderInfo]).to(classOf[MarathonLeaderInfo]).in(Scopes.SINGLETON)
     bind(classOf[TaskOpFactory]).to(classOf[TaskOpFactoryImpl]).in(Scopes.SINGLETON)
-
-    bind(classOf[EventStream]).to(classOf[EventStream]).in(Scopes.SINGLETON)
 
     bind(classOf[HealthCheckManager]).to(classOf[MarathonHealthCheckManager]).asEagerSingleton()
 

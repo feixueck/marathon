@@ -264,7 +264,7 @@ class MarathonSchedulerServiceTest
         schedulerService.stopLeadership()
     }
 
-    verify(electionService, Mockito.timeout(1000)).offerLeadership()
+    verify(electionService, Mockito.timeout(1000)).offerLeadership(candidate = schedulerService)
   }
 
   test("Abdicate leadership when the driver creation fails by some exception") {
@@ -296,7 +296,7 @@ class MarathonSchedulerServiceTest
       case e: Exception => schedulerService.stopLeadership()
     }
 
-    verify(electionService, Mockito.timeout(1000)).offerLeadership()
+    verify(electionService, Mockito.timeout(1000)).offerLeadership(candidate = schedulerService)
   }
 
   test("Abdicate leadership when driver ends with error") {
