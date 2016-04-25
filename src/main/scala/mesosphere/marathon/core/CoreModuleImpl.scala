@@ -7,7 +7,6 @@ import akka.event.EventStream
 import com.google.inject.Inject
 import com.twitter.common.zookeeper.ZooKeeperClient
 import mesosphere.chaos.http.HttpConf
-import mesosphere.marathon.api.LeaderInfo
 import mesosphere.marathon.core.auth.AuthModule
 import mesosphere.marathon.core.base.{ ActorsModule, Clock, ShutdownHooks }
 import mesosphere.marathon.core.flow.FlowModule
@@ -51,7 +50,6 @@ class CoreModuleImpl @Inject() (
     groupRepository: GroupRepository,
     taskRepository: TaskRepository,
     taskOpFactory: TaskOpFactory,
-    leaderInfo: LeaderInfo,
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
     clock: Clock,
     taskStatusUpdateSteps: Seq[TaskUpdateStep]) extends CoreModule {
