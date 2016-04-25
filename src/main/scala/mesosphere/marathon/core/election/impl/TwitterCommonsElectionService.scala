@@ -27,10 +27,9 @@ class TwitterCommonsElectionService(
   zk: ZooKeeperClient,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
   candidate: ElectionCandidate,
-  backoff: Backoff
-) extends ElectionServiceBase(
+  backoff: Backoff) extends ElectionServiceBase(
   config, system, eventStream, metrics, electionCallbacks, candidate, backoff
-) with TwitterCommonsLeader {
+) {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
   private lazy val commonsCandidate = provideCandidate(zk)
 
@@ -50,23 +49,23 @@ class TwitterCommonsElectionService(
 
   override def offerLeadershipImpl(): Unit = synchronized {
     log.info("Using HA and therefore offering leadership")
-    commonsCandidate.offerLeadership(this)
+    commonsCandidate.offerLeadership(Leader)
   }
 
-  //Begin Leader interface, which is required for CandidateImpl.
-  override def onDefeated(): Unit = synchronized {
-    log.info("Defeated (Leader Interface)")
-    stopLeadership()
-  }
+  private object Leader extends TwitterCommonsLeader {
+    override def onDefeated(): Unit = synchronized {
+      log.info("Defeated (Leader Interface)")
+      stopLeadership()
+    }
 
-  override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {
-    log.info("Elected (Leader Interface)")
-    startLeadership(error => synchronized {
-      abdicateCmd.execute()
-      // stopLeadership() is called in onDefeated
-    })
+    override def onElected(abdicateCmd: ExceptionalCommand[JoinException]): Unit = synchronized {
+      log.info("Elected (Leader Interface)")
+      startLeadership(error => synchronized {
+        abdicateCmd.execute()
+        // stopLeadership() is called in onDefeated
+      })
+    }
   }
-  //End Leader interface
 
   private def provideCandidate(zk: ZooKeeperClient): Candidate = {
     log.info("Registering in ZooKeeper with hostPort:" + hostPort)

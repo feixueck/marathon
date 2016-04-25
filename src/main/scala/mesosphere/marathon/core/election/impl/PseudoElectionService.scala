@@ -18,8 +18,7 @@ class PseudoElectionService(
   hostPort: String,
   electionCallbacks: Seq[ElectionCallback] = Seq.empty,
   delegate: ElectionCandidate,
-  backoff: ExponentialBackoff
-) extends ElectionServiceBase(
+  backoff: ExponentialBackoff) extends ElectionServiceBase(
   config, system, eventStream, metrics, electionCallbacks, delegate, backoff
 ) {
   private val log = LoggerFactory.getLogger(getClass.getName)

@@ -6,7 +6,11 @@ import com.codahale.metrics.MetricRegistry
 import com.twitter.common.zookeeper.ZooKeeperClient
 import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.core.election.impl.{ExponentialBackoff, TwitterCommonsElectionService, PseudoElectionService}
+import mesosphere.marathon.core.election.impl.{
+  ExponentialBackoff,
+  TwitterCommonsElectionService,
+  PseudoElectionService
+}
 import mesosphere.marathon.metrics.Metrics
 
 import scala.collection.immutable.Seq

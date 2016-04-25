@@ -8,7 +8,7 @@ import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
 import mesosphere.marathon.core.election.{ ElectionCallback, ElectionCandidate }
 import mesosphere.marathon.metrics.Metrics
-import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
+import org.apache.curator.framework.{ CuratorFramework, CuratorFrameworkFactory }
 import org.apache.curator.framework.recipes.leader.{ LeaderLatch, LeaderLatchListener }
 import org.apache.curator.retry.ExponentialBackoffRetry
 import org.slf4j.LoggerFactory
@@ -16,19 +16,18 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable.Seq
 
 class CuratorElectionService(
-    config: MarathonConf,
-    system: ActorSystem,
-    eventStream: EventStream,
-    http: HttpConf,
-    metrics: Metrics = new Metrics(new MetricRegistry),
-    hostPort: String,
-    zk: ZooKeeperClient,
-    electionCallbacks: Seq[ElectionCallback] = Seq.empty,
-    delegate: ElectionCandidate,
-    backoff: ExponentialBackoff
-) extends ElectionServiceBase(
+  config: MarathonConf,
+  system: ActorSystem,
+  eventStream: EventStream,
+  http: HttpConf,
+  metrics: Metrics = new Metrics(new MetricRegistry),
+  hostPort: String,
+  zk: ZooKeeperClient,
+  electionCallbacks: Seq[ElectionCallback] = Seq.empty,
+  delegate: ElectionCandidate,
+  backoff: ExponentialBackoff) extends ElectionServiceBase(
   config, system, eventStream, metrics, electionCallbacks, delegate, backoff
-) with LeaderLatchListener {
+) {
   private lazy val log = LoggerFactory.getLogger(getClass.getName)
 
   private lazy val maxZookeeperBackoffTime = 1000 * 300
@@ -43,24 +42,24 @@ class CuratorElectionService(
 
   override def offerLeadershipImpl(): Unit = synchronized {
     log.info("Using HA and therefore offering leadership")
-    latch.addListener(this) // idem-potent
+    latch.addListener(Listener) // idem-potent
     latch.start()
   }
 
-  //Begin LeaderLatchListener interface
-  override def notLeader(): Unit = synchronized {
-    log.info("Defeated (Leader Interface)")
-    stopLeadership()
-  }
+  private object Listener extends LeaderLatchListener {
+    override def notLeader(): Unit = synchronized {
+      log.info("Defeated (Leader Interface)")
+      stopLeadership()
+    }
 
-  override def isLeader(): Unit = synchronized {
-    log.info("Elected (Leader Interface)")
-    startLeadership(error => synchronized {
-      latch.close()
-      // stopLeadership() is called in notLeader
-    })
+    override def isLeader(): Unit = synchronized {
+      log.info("Elected (Leader Interface)")
+      startLeadership(error => synchronized {
+        latch.close()
+        // stopLeadership() is called in notLeader
+      })
+    }
   }
-  //End Leader interface
 
   private def provideCuratorClient(zk: ZooKeeperClient): CuratorFramework = {
     val client = CuratorFrameworkFactory.newClient(zk.getConnectString,
