@@ -11,6 +11,7 @@ import mesosphere.marathon.metrics.Metrics
 import org.apache.curator.framework.{ CuratorFramework, CuratorFrameworkFactory }
 import org.apache.curator.framework.recipes.leader.{ LeaderLatch, LeaderLatchListener }
 import org.apache.curator.retry.ExponentialBackoffRetry
+import org.apache.zookeeper.{ ZooDefs, KeeperException, CreateMode }
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
@@ -33,7 +34,7 @@ class CuratorElectionService(
   private lazy val maxZookeeperBackoffTime = 1000 * 300
   private lazy val minZookeeperBackoffTime = 500
 
-  private lazy val latch = new LeaderLatch(provideCuratorClient(zk), "curator-leader", hostPort)
+  private lazy val latch = new LeaderLatch(provideCuratorClient(zk), config.zooKeeperLeaderPath + "-curator", hostPort)
 
   override def leaderHostPort: Option[String] = synchronized {
     val l = latch.getLeader
@@ -50,6 +51,9 @@ class CuratorElectionService(
     override def notLeader(): Unit = synchronized {
       log.info("Defeated (Leader Interface)")
       stopLeadership()
+
+      // remove tombstone for twitter commons
+      twitterCommons.deleteTombstone(onlyMyself = true)
     }
 
     override def isLeader(): Unit = synchronized {
@@ -58,6 +62,10 @@ class CuratorElectionService(
         latch.close()
         // stopLeadership() is called in notLeader
       })
+
+      // write a tombstone into the old twitter commons leadership election path which always
+      // wins the selection there.
+      twitterCommons.createTombstone()
     }
   }
 
@@ -67,5 +75,41 @@ class CuratorElectionService(
     client.start()
     client.getZookeeperClient.blockUntilConnectedOrTimedOut()
     client
+  }
+
+  private object twitterCommons {
+    lazy val group = TwitterCommonsElectionService.group(zk, config)
+    lazy val tombstoneMemberName = "member_-00000000" // - precedes 0-9 in ASCII
+    lazy val tombstonePath = group.getMemberPath(tombstoneMemberName)
+
+    def createTombstone(): Unit = {
+      try {
+        twitterCommons.deleteTombstone()
+        val data = hostPort.getBytes("UTF-8")
+        zk.get.create(twitterCommons.tombstonePath, data, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL)
+      }
+      catch {
+        case e: Exception =>
+          log.error(s"Exception while creating tombstone for twitter commons leader election: ${e.getMessage}")
+          abdicateLeadership(error = true)
+      }
+    }
+
+    def deleteTombstone(onlyMyself: Boolean = false): Unit = {
+      val tombstone = Option(zk.get.exists(tombstonePath, false))
+      tombstone match {
+        case None =>
+        case Some(ts) =>
+          try {
+            if (!onlyMyself || group.getMemberData(tombstoneMemberName).toString == hostPort) {
+              zk.get.delete(tombstonePath, ts.getVersion)
+            }
+          }
+          catch {
+            case _: KeeperException.NoNodeException     =>
+            case _: KeeperException.BadVersionException =>
+          }
+      }
+    }
   }
 }

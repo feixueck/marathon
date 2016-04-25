@@ -69,12 +69,18 @@ class TwitterCommonsElectionService(
 
   private def provideCandidate(zk: ZooKeeperClient): Candidate = {
     log.info("Registering in ZooKeeper with hostPort:" + hostPort)
-    new CandidateImpl(new Group(zk, ZooDefs.Ids.OPEN_ACL_UNSAFE, config.zooKeeperLeaderPath),
+    new CandidateImpl(TwitterCommonsElectionService.group(zk, config),
       new Supplier[Array[Byte]] {
         def get(): Array[Byte] = {
           hostPort.getBytes("UTF-8")
         }
       }
     )
+  }
+}
+
+object TwitterCommonsElectionService {
+  def group(zk: ZooKeeperClient, config: MarathonConf): Group = {
+    new Group(zk, ZooDefs.Ids.OPEN_ACL_UNSAFE, config.zooKeeperLeaderPath)
   }
 }

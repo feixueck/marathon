@@ -8,6 +8,7 @@ import mesosphere.chaos.http.HttpConf
 import mesosphere.marathon.MarathonConf
 import mesosphere.marathon.core.election.impl.{
   ExponentialBackoff,
+  CuratorElectionService,
   TwitterCommonsElectionService,
   PseudoElectionService
 }
@@ -26,7 +27,7 @@ class ElectionModule(
     electionCallbacks: Seq[ElectionCallback] = Seq.empty,
     candidate: ElectionCandidate) {
   lazy val service = if (config.highlyAvailable()) {
-    new TwitterCommonsElectionService(
+    new CuratorElectionService(
       config,
       system,
       eventStream,
